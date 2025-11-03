@@ -1,10 +1,7 @@
-const redis = require('../config/redis');
-
 /**
- * Cache helper utilities for Redis
- * Usage: await cache.set(key, value, ttl)
- *        const value = await cache.get(key)
- *        await cache.del(key)
+ * In-memory cache helper (replacement for Redis) — simple Map with TTL.
+ * This preserves the same async API used across the app so other modules
+ * don't need changes when Redis is removed.
  */
 
 class CacheHelper {
@@ -15,15 +12,14 @@ class CacheHelper {
    */
   static async get(key) {
     try {
-      const value = await redis.get(key);
-      if (!value) return null;
-      
-      try {
-        return JSON.parse(value);
-      } catch {
-        // If not JSON, return as string
-        return value;
+      const entry = CacheHelper._store.get(key);
+      if (!entry) return null;
+      const { value, expiresAt } = entry;
+      if (expiresAt && Date.now() > expiresAt) {
+        CacheHelper._store.delete(key);
+        return null;
       }
+      return value;
     } catch (err) {
       console.error(`Cache GET error for key ${key}:`, err);
       return null;
@@ -39,13 +35,8 @@ class CacheHelper {
    */
   static async set(key, value, ttl = 3600) {
     try {
-      const serialized = typeof value === 'string' ? value : JSON.stringify(value);
-      
-      if (ttl) {
-        await redis.set(key, serialized, 'EX', ttl);
-      } else {
-        await redis.set(key, serialized);
-      }
+      const expiresAt = ttl ? Date.now() + ttl * 1000 : null;
+      CacheHelper._store.set(key, { value, expiresAt });
       return true;
     } catch (err) {
       console.error(`Cache SET error for key ${key}:`, err);
@@ -60,7 +51,7 @@ class CacheHelper {
    */
   static async del(key) {
     try {
-      await redis.del(key);
+      CacheHelper._store.delete(key);
       return true;
     } catch (err) {
       console.error(`Cache DEL error for key ${key}:`, err);
@@ -76,7 +67,7 @@ class CacheHelper {
   static async delMany(keys) {
     try {
       if (keys.length === 0) return true;
-      await redis.del(...keys);
+      for (const k of keys) CacheHelper._store.delete(k);
       return true;
     } catch (err) {
       console.error(`Cache DEL MANY error:`, err);
@@ -91,10 +82,12 @@ class CacheHelper {
    */
   static async clearPattern(pattern) {
     try {
-      const keys = await redis.keys(pattern);
-      if (keys.length === 0) return 0;
-      
-      await redis.del(...keys);
+      const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+      const keys = [];
+      for (const k of CacheHelper._store.keys()) {
+        if (regex.test(k)) keys.push(k);
+      }
+      for (const k of keys) CacheHelper._store.delete(k);
       return keys.length;
     } catch (err) {
       console.error(`Cache CLEAR PATTERN error:`, err);
@@ -109,8 +102,7 @@ class CacheHelper {
    */
   static async exists(key) {
     try {
-      const result = await redis.exists(key);
-      return result === 1;
+      return CacheHelper._store.has(key);
     } catch (err) {
       console.error(`Cache EXISTS error for key ${key}:`, err);
       return false;
@@ -159,8 +151,12 @@ class CacheHelper {
    */
   static async incr(key, increment = 1) {
     try {
-      const result = await redis.incrBy(key, increment);
-      return result;
+      const entry = CacheHelper._store.get(key);
+      let num = 0;
+      if (entry && typeof entry.value === 'number') num = entry.value;
+      num += increment;
+      CacheHelper._store.set(key, { value: num, expiresAt: entry ? entry.expiresAt : null });
+      return num;
     } catch (err) {
       console.error(`Cache INCR error for key ${key}:`, err);
       return null;
@@ -173,13 +169,23 @@ class CacheHelper {
    */
   static async info() {
     try {
-      const info = await redis.info();
-      return info;
+      return { keys: CacheHelper._store.size };
     } catch (err) {
       console.error(`Cache INFO error:`, err);
       return null;
     }
   }
 }
+
+// Internal Map store and simple TTL housekeeping
+CacheHelper._store = new Map();
+
+// Periodic cleanup of expired keys (runs every 60s)
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of CacheHelper._store.entries()) {
+    if (v.expiresAt && now > v.expiresAt) CacheHelper._store.delete(k);
+  }
+}, 60 * 1000).unref && setInterval(() => {}).unref();
 
 module.exports = CacheHelper;
