@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import PublicHeader from '../../components/common/PublicHeader';
@@ -8,6 +8,7 @@ import { getAddresses } from '../../services/AddressService';
 import { getShippingMethods } from '../../services/ShippingMethodService';
 import { createZaloPayPayment } from '../../services/PaymentService';
 import axiosInstance from '../../utils/axiosInstance';
+import Web3 from "web3";
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -208,6 +209,16 @@ function CheckoutPage() {
     navigate('/cart');
   };
 
+  async function localClearCart() {
+    // Xóa giỏ hàng sau khi tạo đơn thành công
+      try {
+        await clearCart();
+      } catch (e) {
+        console.warn('Không thể xóa giỏ hàng ngay sau khi đặt, sẽ bỏ qua:', e?.message || e);
+      }
+      setCartItems([]);
+  }
+
   // Xử lý đặt hàng
   const handlePlaceOrder = async () => {
     console.log('handlePlaceOrder called');
@@ -268,24 +279,24 @@ function CheckoutPage() {
       };
       console.log('Order payload gửi lên backend:', orderPayload);
       
+      var response = null
       // Gửi đơn hàng
-  const response = await axiosInstance.post('/orders', orderPayload);
-  console.log('Order response:', response.data);
-  const createdData = response?.data?.data || response?.data || {};
-      // Xóa giỏ hàng sau khi tạo đơn thành công
-      try {
-        await clearCart();
-      } catch (e) {
-        console.warn('Không thể xóa giỏ hàng ngay sau khi đặt, sẽ bỏ qua:', e?.message || e);
-      }
-      setCartItems([]);
+      if(paymentMethod == "crypto") 
+        console.log("crypto")
+        // nếu phương thức là crypto, post đến endpoint khác
+        // YÊU CẦU: const { contractAddress, abi, orderId, items, timestamp, amount } = orderInfo;
+      
+      else response = await axiosInstance.post('/orders', orderPayload);
+
+      console.log('Order response:', response ? response.data : null);
+      const createdData = response?.data?.data || response?.data || {};
       
       // Xử lý phương thức thanh toán
       if (paymentMethod === 'online') {
         const paymentInfo = `Thanh toán đơn hàng cho ${shippingInfo.fullName}`;
         // Lấy mã đơn/mã hiển thị từ response để gắn vào redirect URL
-  const createdId = createdData.orderId || createdData.id;
-  const createdCode = createdData.orderCode || createdData.order_code;
+        const createdId = createdData.orderId || createdData.id;
+        const createdCode = createdData.orderCode || createdData.order_code;
         // Sau khi thanh toán thành công, cho ZaloPay điều hướng thẳng về trang xác nhận
         // kèm query để trang OrderSuccess có thể đọc được nếu không có state
         const search = new URLSearchParams({
@@ -299,11 +310,98 @@ function CheckoutPage() {
           redirectUrl
         });
         if (res.data && res.data.order_url) {
+          // Xóa giỏ hàng sau khi tạo đơn thành công
+          await localClearCart()
           window.location.href = res.data.order_url;
         } else {
           alert('Không lấy được link thanh toán ZaloPay');
         }
         setIsLoading(false);
+        return;
+      }
+      // Xử lý phương thức thanh toán bằng Crypto (Metamask)
+      else if (paymentMethod === 'crypto') {
+        // mock crypto orderInfo
+        const orderInfo = {
+          contractAddress: "0x1234567890abcdef1234567890abcdef12345678",
+          abi: [
+            {
+              "inputs": [
+                { "internalType": "uint256", "name": "_id", "type": "uint256" },
+                { "internalType": "string[]", "name": "_items", "type": "string[]" },
+                { "internalType": "uint256", "name": "_timestamp", "type": "uint256" }
+              ],
+              "name": "createOrder",
+              "outputs": [],
+              "stateMutability": "payable",
+              "type": "function"
+            }
+          ],
+          id: 1,
+          items: ["item1", "item2"],
+          timestamp: Math.floor(Date.now() / 1000),
+          amount: "10000000000000000"
+        };
+
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          const web3 = new Web3(window.ethereum);
+          const accounts = await web3.eth.getAccounts();
+          const accountAddress = accounts[0];
+
+          const contract = new web3.eth.Contract(orderInfo.abi, orderInfo.contractAddress);
+
+          const data = contract.methods
+            .createOrder(orderInfo.id, orderInfo.items, orderInfo.timestamp)
+            .encodeABI();
+
+          const transaction = {
+            from: accountAddress,
+            to: orderInfo.contractAddress,
+            data,
+            value: web3.utils.toHex(orderInfo.amount),
+          };
+
+          let txHash;
+          try {
+            txHash = await window.ethereum.request({
+              method: "eth_sendTransaction",
+              params: [transaction]
+            });
+          } catch (err) {
+            alert("Bạn đã từ chối giao dịch, hoặc không có đủ số dư!", err);
+            console.log(err);
+            setIsLoading(false);
+            return;
+          }
+
+          let receipt = null;
+          while (!receipt) {
+            receipt = await web3.eth.getTransactionReceipt(txHash);
+            if (!receipt) await new Promise(r => setTimeout(r, 1500));
+          }
+
+          if (receipt.status) {
+            console.log("Giao dịch thành công:", receipt);
+            await localClearCart()
+            // Navigate to success page
+            const orderInfo = {
+              id: createdData.orderId || createdData.id,
+              orderCode: createdData.orderCode || createdData.order_code,
+              total: total,
+              paymentMethod: paymentMethod
+            };
+            navigate('/order-success', { state: { orderInfo } });
+          } else {
+            console.log("Giao dịch thất bại:", receipt);
+            alert("Giao dịch thất bại. Vui lòng thử lại!");
+          }
+        } catch (error) {
+          console.error('Crypto payment error:', error);
+          alert('Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại!');
+        } finally {
+          setIsLoading(false);
+        }
         return;
       }
       
@@ -315,7 +413,8 @@ function CheckoutPage() {
         paymentMethod: paymentMethod
       };
       
-      navigate('/order-success', { state: { orderInfo } });
+      // navigate('/order-success', { state: { orderInfo } });
+      
     } catch (error) {
       console.error('Order error:', error);
       let msg = 'Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!';
@@ -533,6 +632,17 @@ function CheckoutPage() {
                 />
                 <span className="method-icon">💳</span>
                 <span className="method-text">ZaloPay</span>
+              </label>
+              <label className="payment-method">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="crypto"
+                  checked={paymentMethod === 'crypto'}
+                  onChange={() => setPaymentMethod('crypto')}
+                />
+                <span className="method-icon">🦊</span>
+                <span className="method-text">Thanh toán bằng crypto (Metamask)</span>
               </label>
               </div>
             </div>

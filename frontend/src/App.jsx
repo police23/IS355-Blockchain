@@ -66,7 +66,7 @@ const HomeRoute = () => {
 
   useEffect(() => {
     axios
-      .get("https://my-bookstore-backend-linux-bzcyc3bncbgwhyfq.southeastasia-01.azurewebsites.net/api-test")
+      .get("http://localhost:5000/api")
       .then((res) => {
         console.log("Backend connected successfully:", res.data);
       })
