@@ -1,4 +1,5 @@
 const { sequelize, Order, OrderDetail, OrderAssignment, User, ShippingMethod, Book } = require('../models');
+const { refundEscrowOnChain, releaseEscrowOnChain, hasActiveEscrow } = require('../utils/escrowClient');
 const { Op } = require('sequelize');
 
 const getOrdersByUserID = async (userID, page = 1, pageSize = 10) => {
@@ -131,16 +132,36 @@ const confirmOrder = async (orderId) => {
 const completeOrder = async (orderId) => {
   const order = await Order.findByPk(orderId);
   if (!order) throw new Error("Order not found");
+
+  let releaseTxHash = null;
+
+  // Nếu là đơn thanh toán online (crypto/ZaloPay), thử release escrow
+  if (order.payment_method === 'online') {
+    try {
+      const hasEscrow = await hasActiveEscrow(order.id);
+      if (hasEscrow) {
+        releaseTxHash = await releaseEscrowOnChain(order.id);
+      } else {
+        console.log("[completeOrder] Không có escrow active cho order", order.id, "- bỏ qua release on-chain");
+      }
+    } catch (error) {
+      console.error("[completeOrder] Lỗi khi release escrow on-chain (bỏ qua, vẫn chuyển trạng thái đơn):", error);
+      // Không throw nữa để không chặn việc cập nhật trạng thái đơn.
+      // Nếu muốn bắt buộc thành công on-chain mới cho hoàn tất đơn,
+      // có thể đưa lại dòng throw ở đây.
+    }
+  }
+
   order.status = 'delivered';
   await order.save();
-  
+
   const assignment = await OrderAssignment.findOne({ where: { order_id: orderId } });
   if (assignment) {
     assignment.completion_date = new Date();
     await assignment.save();
   }
-  
-  return { order, assignment };
+
+  return { order, assignment, releaseTxHash };
 };
 
 const cancelOrder = async (orderId) => {
@@ -153,15 +174,34 @@ const cancelOrder = async (orderId) => {
       return { success: true, message: 'Đơn hàng đã ở trạng thái hủy' };
     }
 
-    // Chỉ khôi phục tồn kho nếu đơn chưa giao/hoàn tất
+    let refundTxHash = null;
+
+    // Nếu là đơn thanh toán online (crypto) và chưa giao/hoàn tất, thử hoàn tiền on-chain
+    if (order.payment_method === 'online' && !['delivered', 'completed'].includes(order.status)) {
+      try {
+        const hasEscrow = await hasActiveEscrow(order.id);
+        if (hasEscrow) {
+          refundTxHash = await refundEscrowOnChain(order.id);
+        } else {
+          console.log("[cancelOrder] Không có escrow active cho order", order.id, "- bỏ qua refund on-chain");
+        }
+      } catch (error) {
+        console.error("[cancelOrder] Lỗi khi hoàn tiền escrow on-chain (bỏ qua, vẫn hủy đơn trong DB):", error);
+        // Không throw nữa để không chặn việc hủy đơn trong hệ thống
+        // Trường hợp cấu hình ESCROW_* thiếu hoặc RPC lỗi, đơn vẫn được hủy,
+        // chỉ là tiền trên blockchain (nếu có) sẽ không được tự động refund.
+      }
+    }
+
+    // Chỉ khôi phục tồn kho nếu đơn đã giao/hoàn tất
     if (['delivered', 'completed'].includes(order.status)) {
       order.status = 'cancelled';
       await order.save({ transaction: t });
-      return { success: true, message: 'Đơn đã hoàn tất, chuyển trạng thái hủy (không hoàn kho)' };
+      return { success: true, message: 'Đơn đã hoàn tất, chuyển trạng thái hủy (không hoàn kho)', refundTxHash };
     }
 
     // Lấy chi tiết đơn để hoàn kho
-    const details = await OrderDetail.findAll({ where: { order_id: orderId } , transaction: t});
+    const details = await OrderDetail.findAll({ where: { order_id: orderId }, transaction: t });
     for (const d of details) {
       const book = await Book.findByPk(d.book_id, { transaction: t, lock: t.LOCK.UPDATE });
       if (book) {
@@ -174,7 +214,11 @@ const cancelOrder = async (orderId) => {
 
     order.status = 'cancelled';
     await order.save({ transaction: t });
-    return { success: true, message: 'Đơn hàng đã được hủy và tồn kho đã được khôi phục' };
+    return {
+      success: true,
+      message: 'Đơn hàng đã được hủy và tồn kho đã được khôi phục',
+      refundTxHash,
+    };
   });
 };
 

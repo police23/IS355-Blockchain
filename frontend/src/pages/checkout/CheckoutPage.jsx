@@ -220,6 +220,23 @@ function CheckoutPage() {
   }
 
   // Xử lý đặt hàng
+  // Lấy tỷ giá ETH/VND từ CoinGecko
+  const fetchEthPriceVnd = async () => {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=vnd"
+    );
+    if (!res.ok) {
+      throw new Error("Không lấy được tỷ giá ETH/VND");
+    }
+    const data = await res.json();
+    const price = Number(data?.ethereum?.vnd);
+    if (!price || !Number.isFinite(price)) {
+      throw new Error("Giá ETH/VND không hợp lệ");
+    }
+    console.log("ETH/VND price:", price);
+    return price; // VND cho 1 ETH
+  };
+
   const handlePlaceOrder = async () => {
     console.log('handlePlaceOrder called');
     // Kiểm tra thông tin giao hàng
@@ -263,14 +280,14 @@ function CheckoutPage() {
       // Chuẩn bị payload đơn hàng
       const orderPayload = {
         userID: user.id,
-        shipping_method_id: selectedShippingMethod,
+        shipping_method_id: selectedShippingMethod || null,
         shipping_address: fullAddress,
         promotion_code: appliedCoupon?.promotion_code || appliedCoupon?.code || '',
         total_amount: subtotal,
         shipping_fee: shippingFee,
         discount_amount: discount,
         final_amount: total,
-        payment_method: paymentMethod,
+        payment_method: paymentMethod === 'crypto' ? 'online' : paymentMethod,
         orderDetails: cartItems.map(item => ({
           book_id: item.bookId,
           quantity: item.quantity,
@@ -278,16 +295,10 @@ function CheckoutPage() {
         }))
       };
       console.log('Order payload gửi lên backend:', orderPayload);
-      
-      var response = null
-      // Gửi đơn hàng
-      if(paymentMethod == "crypto") 
-        console.log("crypto")
-        // nếu phương thức là crypto, post đến endpoint khác
-        // YÊU CẦU: const { contractAddress, abi, orderId, items, timestamp, amount } = orderInfo;
-      
-      else response = await axiosInstance.post('/orders', orderPayload);
 
+      // Gửi đơn hàng (tạo đơn trước, sau đó mới xử lý thanh toán)
+      const response = await axiosInstance.post('/orders', orderPayload);
+      
       console.log('Order response:', response ? response.data : null);
       const createdData = response?.data?.data || response?.data || {};
       
@@ -319,92 +330,113 @@ function CheckoutPage() {
         setIsLoading(false);
         return;
       }
+
       // Xử lý phương thức thanh toán bằng Crypto (Metamask)
       else if (paymentMethod === 'crypto') {
-        // mock crypto orderInfo
-        const orderInfo = {
-          contractAddress: "0x1234567890abcdef1234567890abcdef12345678",
-          abi: [
-            {
-              "inputs": [
-                { "internalType": "uint256", "name": "_id", "type": "uint256" },
-                { "internalType": "string[]", "name": "_items", "type": "string[]" },
-                { "internalType": "uint256", "name": "_timestamp", "type": "uint256" }
-              ],
-              "name": "createOrder",
-              "outputs": [],
-              "stateMutability": "payable",
-              "type": "function"
-            }
-          ],
-          id: 1,
-          items: ["item1", "item2"],
-          timestamp: Math.floor(Date.now() / 1000),
-          amount: "10000000000000000"
-        };
-
         try {
+          if (!window.ethereum) {
+            alert('Vui lòng cài MetaMask để sử dụng thanh toán crypto');
+            return;
+          }
+
+          // Kết nối MetaMask
           await window.ethereum.request({ method: "eth_requestAccounts" });
           const web3 = new Web3(window.ethereum);
           const accounts = await web3.eth.getAccounts();
           const accountAddress = accounts[0];
 
-          const contract = new web3.eth.Contract(orderInfo.abi, orderInfo.contractAddress);
+          const orderId = createdData.orderId || createdData.id;
+          const orderCode = createdData.orderCode || createdData.order_code;
 
+          // 1) Lấy tỷ giá ETH/VND
+          const ethPriceVnd = await fetchEthPriceVnd(); // VND cho 1 ETH
+          const totalVndNumber = Number(total);
+          if (!totalVndNumber || !Number.isFinite(totalVndNumber) || totalVndNumber <= 0) {
+            throw new Error("Tổng tiền đơn hàng không hợp lệ");
+          }
+          console.log("Crypto payment - totalVnd:", totalVndNumber, "ethPriceVnd:", ethPriceVnd);
+
+          // 2) Tính amountInWei bằng BigInt (tránh sai số số thực)
+          const totalVndBig = BigInt(Math.round(totalVndNumber));    // VND
+          const ethPriceVndBig = BigInt(Math.round(ethPriceVnd));    // VND cho 1 ETH
+          const weiPerEth = 10n ** 18n;                              // 1 ETH = 10^18 wei
+          const amountInWeiBig = totalVndBig * weiPerEth / ethPriceVndBig;
+          if (amountInWeiBig <= 0n) {
+            throw new Error("Số wei tính được không hợp lệ");
+          }
+          const amountInWeiHex = "0x" + amountInWeiBig.toString(16);
+          console.log("amountInWeiBig:", amountInWeiBig.toString(), "amountInWeiHex:", amountInWeiHex);
+
+          // 3) Chuẩn bị thông tin contract (demo)
+          const orderInfo = {
+            contractAddress: "0xbeC2557de11f181F1066DbDcc1A5c1350C3244C9", // TODO: thay bằng contract BookStoreEscrow thật
+            abi: [
+              {
+                "inputs": [
+                  { "internalType": "bytes32", "name": "orderId", "type": "bytes32" }
+                ],
+                "name": "createEscrow",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+              }
+            ]
+          };
+
+          // offchainId dùng duy nhất orderId để hash, trùng với backend (refundEscrowOnChain / hasActiveEscrow)
+          const offchainId = String(orderId);
+          if (!offchainId) {
+            throw new Error("Không lấy được mã đơn hàng để tạo escrow");
+          }
+          const escrowOrderIdBytes32 = web3.utils.keccak256(offchainId);
+
+          const contract = new web3.eth.Contract(orderInfo.abi, orderInfo.contractAddress);
           const data = contract.methods
-            .createOrder(orderInfo.id, orderInfo.items, orderInfo.timestamp)
+            .createEscrow(escrowOrderIdBytes32)
             .encodeABI();
 
-          const transaction = {
+          const txParams = {
             from: accountAddress,
             to: orderInfo.contractAddress,
             data,
-            value: web3.utils.toHex(orderInfo.amount),
+            value: amountInWeiHex,
           };
+
+          console.log("txParams (crypto):", txParams);
 
           let txHash;
           try {
             txHash = await window.ethereum.request({
               method: "eth_sendTransaction",
-              params: [transaction]
+              params: [txParams]
             });
           } catch (err) {
-            alert("Bạn đã từ chối giao dịch, hoặc không có đủ số dư!", err);
-            console.log(err);
+            console.error("User rejected tx or insufficient funds:", err);
+            alert("Bạn đã từ chối giao dịch, hoặc không có đủ số dư!");
             setIsLoading(false);
             return;
           }
 
-          let receipt = null;
-          while (!receipt) {
-            receipt = await web3.eth.getTransactionReceipt(txHash);
-            if (!receipt) await new Promise(r => setTimeout(r, 1500));
-          }
+          console.log("Tx hash:", txHash);
 
-          if (receipt.status) {
-            console.log("Giao dịch thành công:", receipt);
-            await localClearCart()
-            // Navigate to success page
-            const orderInfo = {
-              id: createdData.orderId || createdData.id,
-              orderCode: createdData.orderCode || createdData.order_code,
-              total: total,
-              paymentMethod: paymentMethod
-            };
-            navigate('/order-success', { state: { orderInfo } });
-          } else {
-            console.log("Giao dịch thất bại:", receipt);
-            alert("Giao dịch thất bại. Vui lòng thử lại!");
-          }
+          // 4) Không chờ receipt nữa để tránh lỗi 'Transaction not found'
+          await localClearCart();
+          const orderInfoState = {
+            id: orderId,
+            orderCode: orderCode,
+            total: total,
+            paymentMethod: paymentMethod,
+            txHash
+          };
+          navigate('/order-success', { state: { orderInfo: orderInfoState } });
         } catch (error) {
           console.error('Crypto payment error:', error);
-          alert('Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại!');
+          alert(error.message || 'Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại!');
         } finally {
           setIsLoading(false);
         }
         return;
       }
-      
       // Chuyển hướng đến trang đặt hàng thành công
       const orderInfo = {
         id: createdData.orderId || createdData.id,
