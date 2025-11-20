@@ -5,6 +5,10 @@ import OrderTable from "../../components/tables/OrderTable";
 import ProfilePage from "../profile/ProfilePage";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBitcoinSign, faMoneyBill, faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { CryptoEventsTable } from "../../components/tables/CryptoEventsTable";
+import { CryptoOrdersTable } from "../../components/tables/CryptoOrdersTable";
 
 const orderManagerMenuItems = [
   {
@@ -13,13 +17,18 @@ const orderManagerMenuItems = [
     icon: <i className="fa fa-shopping-cart"></i>,
     showActions: true,
   },
-
+  {
+    path: "crypto-payments",
+    label: "Quản lý thanh toán bằng Crypto",
+    icon: <FontAwesomeIcon icon={faBitcoinSign} />,
+    showActions: true,
+  },
   {
     path: "profile",
     label: "Thông tin tài khoản",
     icon: <i className="fa fa-user"></i>,
     showActions: false,
-  }
+  },
 ];
 
 const orderManagerTabs = [
@@ -45,12 +54,26 @@ const orderManagerTabs = [
   },
 ];
 
+const cryptoTransactionTabs = [
+  {
+    key: "orders",
+    label: "Các đơn hàng",
+    icon: <FontAwesomeIcon icon={faMoneyBill}/>,
+  },
+  {
+    key: "events",
+    label: "Các event",
+    icon: <FontAwesomeIcon icon={faCircleExclamation}/>,
+  },
+]
+
 const OrderManagementDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState("processing");
+  const [ordersActiveTab, setOrdersActiveTab] = useState("processing");
+  const [cryptoActiveTab, setCryptoActiveTab] = useState("all")
 
   // Lấy route hiện tại
   const route = location.pathname.split('/').pop() || "orders";
@@ -75,21 +98,29 @@ const OrderManagementDashboard = () => {
 
   // Render bảng dữ liệu tùy theo route
   const renderTable = () => {
-    if (route === "profile") {
-      return <ProfilePage />;
-    }
-    switch (activeTab) {
-      case "processing":
-        return <OrderTable type="processing" />;
-      case "confirmed":
-        return <OrderTable type="confirmed" />;
-      case "delivering":
-        return <OrderTable type="delivering" />;
-      case "delivered":
-        return <OrderTable type="delivered" />;
-      default:
-        return null;
-    }
+    if(route === "orders")
+      switch (ordersActiveTab) {
+        case "processing":
+          return <OrderTable type="processing" />;
+        case "confirmed":
+          return <OrderTable type="confirmed" />;
+        case "delivering":
+          return <OrderTable type="delivering" />;
+        case "delivered":
+          return <OrderTable type="delivered" />;
+        default:
+          return null;
+      }
+    else if(route === "crypto-payments")
+      switch (cryptoActiveTab) {
+        case "orders":
+          return <CryptoOrdersTable/>
+        case "events":
+          return <CryptoEventsTable type="all"/>;
+        default:
+          return null;
+      }
+    else return <ProfilePage />;
   };
 
   if (!user) {
@@ -119,15 +150,28 @@ const OrderManagementDashboard = () => {
               {orderManagerTabs.map(tab => (
                 <button
                   key={tab.key}
-                  className={`order-tab-btn${activeTab === tab.key ? ' active' : ''}`}
-                  onClick={() => setActiveTab(tab.key)}
+                  className={`order-tab-btn${ordersActiveTab === tab.key ? ' active' : ''}`}
+                  onClick={() => setOrdersActiveTab(tab.key)}
                 >
                   {tab.icon} {tab.label}
                 </button>
               ))}
             </div>
           )}
-          {route === "orders" ? renderTable() : renderTable()}
+          {route === "crypto-payments" && (
+            <div className="order-tabs">
+              {cryptoTransactionTabs.map(tab => (
+                <button
+                  key={tab.key}
+                  className={`order-tab-btn${cryptoActiveTab === tab.key ? ' active' : ''}`}
+                  onClick={() => setCryptoActiveTab(tab.key)}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {renderTable()}
         </div>
       </div>
     </div>

@@ -1,0 +1,184 @@
+
+.book-details-modal-content {
+  width: 700px;
+  max-width: 95vw;
+  min-height: 650px;
+  max-height: 90vh;
+}
+
+
+.book-details-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px 40px;
+  align-items: stretch;
+}
+
+
+/* Image row container for horizontal scroll */
+.book-details-images-row {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  margin-bottom: 24px;
+  padding-bottom: 4px;
+}
+.book-details-images-row img {
+  max-width: 140px;
+  max-height: 180px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+@media (min-width: 600px) {
+  .book-details-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 40px;
+    align-items: flex-start;
+  }
+  .book-details-column {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .details-group {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0;
+    min-height: 32px;
+  }
+  .details-label {
+    font-size: 1em;
+    font-weight: 600;
+    color: #333;
+    min-width: 120px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .details-value {
+    margin-left: 8px;
+    font-size: 1em;
+    color: #095e5a;
+    word-break: break-word;
+    flex: 1;
+  }
+  .details-icon {
+    margin-right: 8px;
+    opacity: 0.7;
+  }
+}
+@media (max-width: 900px) {
+  .book-details-modal-content {
+    width: 98vw;
+    min-width: unset;
+  }
+  .book-details-layout {
+    grid-template-columns: 1fr;
+    gap: 18px 0;
+  }
+  .book-details-column {
+    min-width: 0;
+    max-width: 100%;
+  }
+  
+
+  .book-details-column {
+    flex: 1;
+    min-width: 260px;
+  }
+
+  .details-group {
+    margin-bottom: 18px;
+  }
+
+  .details-label {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+.status-badge {
+  font-weight: 600;
+  font-size: 13.5px;
+  text-transform: none !important; /* Force normal case */
+  font-variant: normal !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.status-released {
+  background-color: #b6f5d0;
+  color: #178a4c !important;
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 12px;
+  padding: 4px 8px;
+  display: inline-block;
+}
+
+.status-deposited {
+  background-color: #b6f5d0;
+  color: #178a4c !important;
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 12px;
+  padding: 4px 8px;
+  display: inline-block;
+}
+
+.status-created {
+  background-color: #b6e7f5;
+  color: #176b8a !important;
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 12px;
+  padding: 4px 8px;
+  display: inline-block;
+}
+
+.status-cancelled {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 12px;
+  padding: 4px 8px;
+  display: inline-block;
+}
+
+.crypto-details-modal-body {
+  padding: 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.crypto-details-modal-btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.crypto-details-modal-btn.cancel {
+  background: #ff0000;
+  color: #ffffff;
+}
+
+.crypto-details-modal-btn.cancel:hover {
+  background: #000000;
+}
+
+.crypto-details-modal-btn.confirm {
+  background: #27ae60;
+  color: #fff;
+}
+
+.crypto-details-modal-btn.confirm:hover {
+  background: #219150;
+}

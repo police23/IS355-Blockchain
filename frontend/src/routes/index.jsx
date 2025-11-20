@@ -155,6 +155,12 @@ const AppRoutes = () => {
           {getDashboardComponent()}
         </ProtectedRoute>
       } />
+      
+      <Route path="/crypto-payments" element={
+        <ProtectedRoute isAllowed={!!user && hasPermission('/crypto-payments')}>
+          {getDashboardComponent()}
+        </ProtectedRoute>
+      } />
 
       <Route path="/zalopay-result" element={<ZaloPayResultPage />} />
 
