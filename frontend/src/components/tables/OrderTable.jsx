@@ -9,6 +9,7 @@ import {
   assignOrderToShipper,
 } from "../../services/OrderService";
 import MyOrderDetailsModal from "../modals/MyOrderDetailsModal";
+import CryptoOrderDetailsModal from "../modals/CryptoOrderDetailsModal";
 import ConfirmationModal from "../modals/ConfirmationModal";
 import AssignShipperModal from "../modals/AssignShipperModal";
 import { getAllShippers } from "../../services/UserService";
@@ -36,6 +37,8 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [shippers, setShippers] = useState([]);
   const [assignOrderId, setAssignOrderId] = useState(null);
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
+  const [cryptoOrderId, setCryptoOrderId] = useState(null);
 
   // Auto close notification after 5s
   useEffect(() => {
@@ -233,6 +236,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
               <th>Số ĐT</th>
               <th>SL sách</th>
               <th>Ngày đặt</th>
+              <th>PT thanh toán</th>
               {type === "delivering" && <th>Người giao</th>}
               <th>Thành tiền</th>
             </tr>
@@ -240,7 +244,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
           <tbody>
             {currentRecords.length === 0 ? (
               <tr>
-                <td colSpan={7} className="order-table-empty">
+                <td colSpan={type === "delivering" ? 9 : 8} className="order-table-empty">
                   Không có dữ liệu
                 </td>
               </tr>
@@ -292,6 +296,15 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                         : 0}
                     </td>
                     <td>{formatDate(order.order_date)}</td>
+                    <td>
+                      <strong>
+                        {order.payment_method === "crypto"
+                          ? "crypto"
+                          : order.payment_method === "online"
+                          ? "ZaloPay"
+                          : "Thanh toán khi nhận hàng"}
+                      </strong>
+                    </td>
                     {type === "delivering" && (
                       <td>
                         {order.assignment?.shipper?.full_name ||
@@ -311,7 +324,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                   expandedRowId === order.id && (
                     <tr key={order.id + "-details"}>
                       <td
-                        colSpan={type === "delivering" ? 8 : 7}
+                        colSpan={type === "delivering" ? 9 : 8}
                         className="order-details-cell"
                       >
                         <div className="order-details-inline">
@@ -350,6 +363,23 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                                 {order.shippingMethod?.name ||
                                   order.shipping_method_name ||
                                   "Không rõ"}
+                              </div>
+                
+                              {/* Crypto details button (moved below shipping method) */}
+                              <div className="order-details-item">
+                                {order.payment_method === "crypto" && (
+                                  <button
+                                    className="btn btn-crypto"
+                                    onClick={(e) => {
+                                      // Prevent toggling the expanded row
+                                      e.stopPropagation();
+                                      setCryptoOrderId(order.id);
+                                      setShowCryptoModal(true);
+                                    }}
+                                  >
+                                    Crypto
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -528,6 +558,16 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
         shippers={shippers}
         orderId={assignOrderId}
       />
+      {/* Crypto Order Details Modal */}
+      {showCryptoModal && (
+        <CryptoOrderDetailsModal
+          orderID={cryptoOrderId}
+          onClose={() => {
+            setShowCryptoModal(false);
+            setCryptoOrderId(null);
+          }}
+        />
+      )}
     </>
   );
 };

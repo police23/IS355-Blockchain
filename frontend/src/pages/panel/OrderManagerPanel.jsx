@@ -8,7 +8,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBitcoinSign, faMoneyBill, faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { CryptoEventsTable } from "../../components/tables/CryptoEventsTable";
-import { CryptoOrdersTable } from "../../components/tables/CryptoOrdersTable";
 
 const orderManagerMenuItems = [
   {
@@ -56,14 +55,9 @@ const orderManagerTabs = [
 
 const cryptoTransactionTabs = [
   {
-    key: "orders",
-    label: "Các đơn hàng",
-    icon: <FontAwesomeIcon icon={faMoneyBill}/>,
-  },
-  {
     key: "events",
     label: "Các event",
-    icon: <FontAwesomeIcon icon={faCircleExclamation}/>,
+    icon: <FontAwesomeIcon icon={faCircleExclamation}/> ,
   },
 ]
 
@@ -73,7 +67,7 @@ const OrderManagementDashboard = () => {
   const { user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [ordersActiveTab, setOrdersActiveTab] = useState("processing");
-  const [cryptoActiveTab, setCryptoActiveTab] = useState("all")
+  const [cryptoActiveTab, setCryptoActiveTab] = useState("events")
 
   // Lấy route hiện tại
   const route = location.pathname.split('/').pop() || "orders";
@@ -113,8 +107,6 @@ const OrderManagementDashboard = () => {
       }
     else if(route === "crypto-payments")
       switch (cryptoActiveTab) {
-        case "orders":
-          return <CryptoOrdersTable/>
         case "events":
           return <CryptoEventsTable type="all"/>;
         default:

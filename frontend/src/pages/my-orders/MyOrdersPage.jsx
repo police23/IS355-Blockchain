@@ -12,6 +12,7 @@ import {
 import "./MyOrdersPage.css";
 import PublicHeader from "../../components/common/PublicHeader";
 import MyOrderDetailsModal from "../../components/modals/MyOrderDetailsModal";
+import MyOrderReceiptModal from "../../components/modals/MyOrderReceiptModal";
 
 const MyOrdersPage = () => {
   const { user } = useAuth();
@@ -21,6 +22,8 @@ const MyOrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [receiptOrderId, setReceiptOrderId] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -148,6 +151,16 @@ const MyOrdersPage = () => {
     console.log("Order detail:", order);
     setSelectedOrder(order);
     setShowOrderDetails(true);
+  };
+
+  const handleOpenReceipt = (orderId) => {
+    setReceiptOrderId(orderId);
+    setShowReceiptModal(true);
+  };
+
+  const handleCloseReceipt = () => {
+    setShowReceiptModal(false);
+    setReceiptOrderId(null);
   };
 
   const closeOrderDetails = () => {
@@ -367,6 +380,13 @@ const MyOrdersPage = () => {
                           >
                             Xem chi tiết
                           </button>
+                          <button
+                            className="export-receipt-btn"
+                            onClick={() => handleOpenReceipt(order.id)}
+                            style={{ marginLeft: 8 }}
+                          >
+                            Xuất biên lai
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -426,6 +446,11 @@ const MyOrdersPage = () => {
           open={showOrderDetails}
           onClose={closeOrderDetails}
           onCancelOrder={handleCancelOrder}
+        />
+        <MyOrderReceiptModal
+          orderId={receiptOrderId}
+          open={showReceiptModal}
+          onClose={handleCloseReceipt}
         />
       </div>
     </>

@@ -182,3 +182,25 @@
 .crypto-details-modal-btn.confirm:hover {
   background: #219150;
 }
+
+/* Recent events scrollable area */
+.recent-events-wrapper {
+  width: 100%;
+  max-height: 44vh; /* responsive to viewport */
+  height: 360px; /* fallback fixed height */
+  overflow-y: auto;
+  padding-right: 8px; /* space for scrollbar */
+  margin-bottom: 8px;
+}
+
+/* Optional: nicer scrollbar for WebKit browsers */
+.recent-events-wrapper::-webkit-scrollbar {
+  width: 10px;
+}
+.recent-events-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+.recent-events-wrapper::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}

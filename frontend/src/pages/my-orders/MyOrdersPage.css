@@ -486,6 +486,24 @@
   background: #5bb8b8;
 }
 
+/* Export receipt button should match the view details button */
+.orders-table .export-receipt-btn {
+  background: #6ec6c6;
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 1.3rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 8px;
+}
+
+.orders-table .export-receipt-btn:hover {
+  background: #5bb8b8;
+}
+
 @media (max-width: 900px) {
   .orders-table-wrapper {
     min-width: 0;

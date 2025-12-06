@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faBox, faUser, faMoneyBill, faCalendar, faInfoCircle, faHistory, faBitcoinSign } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faBox, faHistory } from "@fortawesome/free-solid-svg-icons";
 import "../modals/Modals.css";
 import "./CryptoOrderDetailsModal.css"
 import { formatTimeAgo } from "../../utils/formatTimeAgo";
@@ -35,7 +35,6 @@ const mockRecentEvents = [
 ];
 
 const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
-  const [details, setDetails] = useState({});
   const [recentEvents, setRecentEvents] = useState(mockRecentEvents);
 
   useEffect(() => {
@@ -45,43 +44,7 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (orderID) {
-      const fetchOrderDetails = async () => {
-        try {
-          // const API_BASE = import.meta.env.VITE_API_BASE_URL;
-          // const resp = await fetch(`${API_BASE}/orders/${orderID}`);
-          // if (!resp.ok) throw new Error("Failed to load order details");
-          // const payload = await resp.json();
-          // const fetchedOrder = payload?.data ?? payload;
-          const fetchedOrder = getMockOrder()
-          
-          setDetails({
-            orderId: fetchedOrder.id || "-",
-            customer: fetchedOrder.customer || "-",
-            amount: fetchedOrder.amount ? fetchedOrder.amount.toLocaleString("vi-VN"): "-",
-            ethAmount: fetchedOrder.ethAmount ? fetchedOrder.ethAmount.toString(): "-",
-            status: fetchedOrder.status || "-",
-            createdAt: fetchedOrder.createdAt || "-",
-            updatedAt: fetchedOrder.updatedAt || "-",
-          });
-        } catch (err) {
-          console.error("Error fetching order:", err);
-          setDetails({
-            orderId: "-",
-            customer: "-",
-            amount: "-",
-            ethAmount: "-",
-            status: "Error loading",
-            createdAt: "-",
-            updatedAt: "-",
-          });
-        }
-      };
-
-      fetchOrderDetails();
-    }
-  }, [orderID]);
+  
 
   if (!orderID) return null;
 
@@ -93,9 +56,7 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
     return `${time} ${date}`;
   };
 
-  const formatCurrency = (amount) => {
-    return amount?.toLocaleString("vi-VN", { style: "currency", currency: "VND" }) || "0₫";
-  };
+  // formatCurrency removed because details header was removed
 
   const modalContent = (
     <div className="modal" onClick={onClose}>
@@ -111,61 +72,14 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
             </button>
           </div>
           <div className="crypto-details-modal-body">
-            <div className="book-details-layout">
-              <div className="book-details-column">
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faBox} className="details-icon" /> Mã đơn:
-                  </span>
-                  <span className="details-value">{details.orderId}</span>
-                </div>
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faUser} className="details-icon" /> Khách hàng:
-                  </span>
-                  <span className="details-value">{details.customer}</span>
-                </div>
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faMoneyBill} className="details-icon" /> Đơn giá (VNĐ):
-                  </span>
-                  <span className="details-value">{details.amount}</span>
-                </div>
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faBitcoinSign} className="details-icon" /> Đơn giá (ETH):
-                  </span>
-                  <span className="details-value">{details.ethAmount}</span>
-                </div>
-              </div>
-              <div className="book-details-column">
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faInfoCircle} className="details-icon" /> Trạng thái:
-                  </span>
-                  <span className="details-value">{details.status}</span>
-                </div>
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faCalendar} className="details-icon" /> Ngày tạo:
-                  </span>
-                  <span className="details-value">{formatDate(details.createdAt)}</span>
-                </div>
-                <div className="details-group">
-                  <span className="details-label">
-                    <FontAwesomeIcon icon={faCalendar} className="details-icon" /> Cập nhật:
-                  </span>
-                  <span className="details-value">{formatTimeAgo(details.updatedAt)}</span>
-                </div>
-              </div>
-            </div>
+            {/* Details header removed (user requested to remove red boxed area) */}
 
             {/* Recent Interactions Table */}
             <div style={{ width: "100%", marginTop: 8, marginBottom: 16, paddingTop: 8, borderTop: "1px solid #eee" }}>
               <h4 style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <FontAwesomeIcon icon={faHistory} /> Sự kiện gần đây
               </h4>
-              <div style={{height: 150, overflowY: "auto"}}>
+              <div className="recent-events-wrapper">
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                   <colgroup>
                     <col style={{ width: "20%" }} />

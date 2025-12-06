@@ -49,20 +49,24 @@
 }
 
 .order-table tbody tr.selected:hover {
-    background-color: #e0e0e0;
+  background-color: #e0e0e0;
 }
 
+/* Hover state for rows */
 .order-table tbody tr:hover {
-.order-table th {
-    font-weight: 600;
-    color: #000000c2;
-    background-color: #f9f9f9;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    border-bottom: 2px solid #e0e0e0;
-    font-size: 13px;
+  background-color: #fafafa;
 }
+
+/* Sticky header styling (separate rule) */
+.order-table th {
+  font-weight: 600;
+  color: #000000c2;
+  background-color: #f9f9f9;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 13px;
 }
 
 .order-table tbody tr:hover td {
@@ -137,6 +141,19 @@
   background: #e3f2fd !important;
   color: #1256a3 !important;
   border-color: #1256a3 !important;
+}
+/* Crypto button style */
+.btn-crypto {
+  background: #0b6b6a !important;
+  color: #fff !important;
+  border: 1px solid #0b6b6a !important;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.btn-crypto:hover:not(:disabled) {
+  background: #094f4e !important;
+  border-color: #094f4e !important;
 }
 .action-buttons {
   display: flex;
@@ -301,4 +318,94 @@
     flex-direction: column;
     gap: 10px;
   }
+}
+
+/* Column sizing and alignment improvements */
+.order-table {
+  table-layout: fixed;
+}
+
+.order-table th,
+.order-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* First column: checkbox */
+.order-table th:first-child,
+.order-table td:first-child {
+  width: 48px;
+  text-align: center;
+}
+
+/* Order id */
+.order-table th:nth-child(2),
+.order-table td:nth-child(2) {
+  width: 90px;
+}
+
+/* Customer name */
+.order-table th:nth-child(3),
+.order-table td:nth-child(3) {
+  width: 200px;
+}
+
+/* Phone */
+.order-table th:nth-child(4),
+.order-table td:nth-child(4) {
+  width: 140px;
+}
+
+/* Quantity */
+.order-table th:nth-child(5),
+.order-table td:nth-child(5) {
+  width: 80px;
+  text-align: center;
+}
+
+/* Date */
+.order-table th:nth-child(6),
+.order-table td:nth-child(6) {
+  width: 120px;
+  text-align: center;
+}
+
+/* Payment method (PT thanh toán) */
+.order-table th:nth-child(7),
+.order-table td:nth-child(7) {
+  width: 120px;
+  text-align: center;
+}
+
+/* Last column (Thành tiền) align right */
+.order-table th:last-child,
+.order-table td:last-child {
+  width: 140px;
+  text-align: right;
+  padding-right: 16px;
+}
+
+@media (max-width: 900px) {
+  .order-table th,
+  .order-table td {
+    white-space: normal;
+  }
+  .order-table {
+    table-layout: auto;
+  }
+}
+
+/* Force left alignment in the expanded order details */
+.order-details-cell,
+.order-details-inline,
+.order-details-col,
+.order-details-item {
+  text-align: left;
+}
+
+/* Ensure the Crypto button stays to the right within its column */
+.order-details-col-2 .btn-crypto {
+  display: inline-block;
+  margin-left: auto;
 }
