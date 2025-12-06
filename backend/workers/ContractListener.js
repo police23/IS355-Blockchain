@@ -25,24 +25,59 @@ const startListener = () => {
     // 1. Lắng nghe sự kiện EscrowCreated (Khởi tạo instance Escrow cho từng order)
     contract.on(
       "EscrowCreated",
-      (orderId, buyer, seller, amount, createdAt, timeoutAt, event) => {
-        console.log(`🔥 [EscrowCreated] OrderHash: ${orderId}`);
+      (orderKey, orderId, amount, seller, createdAt, event) => {
+        console.log(`🔥 [EscrowCreated] Order: ${orderId}`);
 
         const eventData = {
           eventName: "EscrowCreated",
           transactionHash: event.log.transactionHash,
           blockNumber: event.log.blockNumber,
-          orderId: orderId, // Hash (bytes32)
+          orderId: orderId,
           payload: {
-            buyer,
             seller,
             amount: ethers.formatEther(amount), // Convert Wei -> ETH cho dễ đọc
             createdAt: createdAt.toString(),
-            timeoutAt: timeoutAt.toString(),
             status: "Active", // Map sang trạng thái DB: Active
           },
         };
 
+        QueueService.pushToQueue(eventData);
+        console.log("đã đẩy escrow create vào queue");
+      }
+    );
+
+    contract.on(
+      "EscrowFunded",
+      (
+        orderKey,
+        orderId,
+        buyer,
+        seller,
+        amount,
+        fundedAt,
+        timeoutAt,
+        event
+      ) => {
+        console.log(`🔥 [EscrowFunded] Order: ${orderId} (Key: ${orderKey})`);
+
+        const eventData = {
+          eventName: "EscrowFunded",
+          transactionHash: event.log.transactionHash,
+          blockNumber: event.log.blockNumber,
+          // Vì trong Event này orderId là string (không phải indexed), nên lấy trực tiếp được
+          orderId: orderId,
+          payload: {
+            buyer: buyer,
+            seller: seller,
+            amount: ethers.formatEther(amount), // Convert Wei -> ETH
+            fundedAt: fundedAt.toString(), // BigInt -> String
+            timeoutAt: timeoutAt.toString(), // BigInt -> String
+            status: "Active", // Hoặc "Funded" tùy logic của bạn
+          },
+          // timestamp: fundedAt.toString() // Nếu bạn muốn dùng thời điểm fund làm time mốc
+        };
+
+        // Đẩy sang Queue Service
         QueueService.pushToQueue(eventData);
       }
     );
@@ -52,29 +87,30 @@ const startListener = () => {
       "PaymentRecorded",
       (
         paymentId,
-        orderIdBytes32,
-        payer,
-        payee,
+        orderKey,
+        orderId,
         amount,
         statusInt,
         timestamp,
+        sender,
         event
       ) => {
         console.log(
-          `🔥 Bắt được sự kiện PaymentRecorded cho OrderHash: ${orderIdBytes32}`
+          `🔥 Bắt được sự kiện PaymentRecorded cho OrderHash: ${orderId}`
         );
 
         const eventData = {
           eventName: "PaymentRecorded",
           transactionHash: event.log.transactionHash,
           blockNumber: event.log.blockNumber,
-          orderId: orderIdBytes32, // Lưu cái Hash này
+          orderId: orderId,
           payload: {
             paymentId: paymentId.toString(),
-            payer,
+            sender,
             amount: ethers.formatEther(amount),
             status: STATUS_MAP[statusInt] || "Unknown",
           },
+          timestamp: timestamp.toString(),
         };
 
         // Đẩy sang Queue Service
@@ -85,7 +121,16 @@ const startListener = () => {
     // 3. Lắng nghe sự kiện EscrowReleased (Shipper ấn xác nhận)
     contract.on(
       "EscrowReleased",
-      (orderId, buyer, seller, amount, releasedBy, releasedAt, event) => {
+      (
+        orderKey,
+        orderId,
+        buyer,
+        seller,
+        amount,
+        releasedBy,
+        releasedAt,
+        event
+      ) => {
         console.log(`✅ [EscrowReleased] OrderHash: ${orderId}`);
 
         const eventData = {
@@ -111,6 +156,7 @@ const startListener = () => {
     contract.on(
       "EscrowRefunded",
       (
+        orderKey,
         orderId,
         buyer,
         seller,

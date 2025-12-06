@@ -317,7 +317,10 @@ const submitCryptoResult = async (req, res) => {
     // 4. Quét Log (Event) trên Blockchain
     // contract.filters.PaymentRecorded(arg1, arg2...)
 
-    const filter = contract.filters.PaymentRecorded(null, orderId.toString());
+    const filter = contract.filters.PaymentRecorded(
+      null,
+      getBytes32FromId(orderId)
+    );
 
     // Tìm trong 2000 block gần nhất (Sepolia block time ~12s => 2000 blocks ~ 6.5 giờ)
     // Tùy chỉnh số này nếu muốn tìm xa hơn
@@ -331,9 +334,11 @@ const submitCryptoResult = async (req, res) => {
       // Giải mã dữ liệu trong sự kiện (args)
       const paymentInfo = {
         paymentId: event.args[0].toString(),
-        payer: event.args[2],
-        amount: ethers.formatEther(event.args[4]), // Đổi từ Wei sang ETH
-        status: event.args[5].toString(), // Enum trả về số (0, 1...)
+        orderId: orderId,
+        amount: ethers.formatEther(event.args[3]), // Đổi từ Wei sang ETH
+        status: event.args[4].toString(), // Enum trả về số (0, 1...)
+        timestamp: event.args[5].toString(),
+        sender: event.args[6],
         txHash: event.transactionHash,
       };
 
@@ -344,67 +349,67 @@ const submitCryptoResult = async (req, res) => {
         message: "Xác nhận thanh toán thành công. Hóa đơn đang được tạo...",
         data: paymentInfo,
       });
-      // (async () => {
-      //   const tempDir = path.join(__dirname, "../temp");
-      //   const pdfPath = path.join(tempDir, `invoice_${orderId}.pdf`);
-      //   const encPath = path.join(tempDir, `invoice_${orderId}.enc`);
+      (async () => {
+        const tempDir = path.join(__dirname, "../temp");
+        const pdfPath = path.join(tempDir, `invoice_${orderId}.pdf`);
+        const encPath = path.join(tempDir, `invoice_${orderId}.enc`);
 
-      //   try {
-      //     console.log(
-      //       `[Receipt] Bắt đầu quy trình tạo hóa đơn cho đơn: ${orderId}`
-      //     );
+        try {
+          console.log(
+            `[Receipt] Bắt đầu quy trình tạo hóa đơn cho đơn: ${orderId}`
+          );
 
-      //     // A. Chuẩn bị thư mục
-      //     await fs.ensureDir(tempDir);
-      //     const timestamp = new Date(order.createdAt).getTime();
+          // A. Chuẩn bị thư mục
+          await fs.ensureDir(tempDir);
+          const timestamp = new Date(order.createdAt).getTime();
 
-      //     // B. Tạo PDF
-      //     await ReceiptService.generatePDF(order, pdfPath);
+          // B. Tạo PDF
+          await ReceiptService.generatePDF(order, pdfPath);
 
-      //     // C. Mã hóa PDF
-      //     await ReceiptService.encryptFile(
-      //       pdfPath,
-      //       encPath,
-      //       order.user_id,
-      //       order.id,
-      //       timestamp
-      //     );
+          // C. Mã hóa PDF
+          await ReceiptService.encryptFile(
+            pdfPath,
+            encPath,
+            order.user_id,
+            order.id,
+            timestamp
+          );
 
-      //     // D. Upload lên IPFS
-      //     const cid = await ReceiptService.uploadToIPFS(
-      //       encPath,
-      //       `Receipt_${orderId}`
-      //     );
-      //     console.log(`[Receipt] Upload IPFS thành công. CID: ${cid}`);
+          // D. Upload lên IPFS
+          const cid = await ReceiptService.uploadToIPFS(
+            encPath,
+            `Receipt_${orderId}`
+          );
+          console.log(`[Receipt] Upload IPFS thành công. CID: ${cid}`);
 
-      //     // E. Lưu vào Smart Contract OrderRegistry (Quan trọng!)
-      //     // Hàm này tốn khoảng 15s để đào block
-      //     await OrderRegistryService.saveReceiptCID(order.id.toString(), cid);
-      //     console.log(`[Receipt] Đã lưu CID lên Blockchain`);
+          // E. Lưu vào Smart Contract OrderRegistry (Quan trọng!)
+          // Hàm này tốn khoảng 15s để đào block
+          await OrderRegistryService.saveReceiptCID(order.id.toString(), cid);
+          console.log(`[Receipt] Đã lưu CID lên Blockchain`);
 
-      //     // F. Cập nhật lại DB lần nữa
-      //     // Lúc này đơn hàng chính thức có hóa đơn
-      //     await Order.update({ receipt_cid: cid }, { where: { id: orderId } });
+          // F. Cập nhật lại DB lần nữa
+          // Lúc này đơn hàng chính thức có hóa đơn
+          await Order.update({ receipt_cid: cid }, { where: { id: orderId } });
 
-      //     // G. Dọn dẹp file rác
-      //     await fs.remove(pdfPath);
-      //     await fs.remove(encPath);
+          // G. Dọn dẹp file rác
+          await fs.remove(pdfPath);
+          await fs.remove(encPath);
 
-      //     console.log(
-      //       `[Receipt] ✅ Hoàn tất toàn bộ quy trình cho đơn ${orderId}`
-      //     );
-      //   } catch (err) {
-      //     console.error(`[Receipt] ❌ Lỗi tạo hóa đơn ngầm:`, err);
+          console.log(
+            `[Receipt] ✅ Hoàn tất toàn bộ quy trình cho đơn ${orderId}`
+          );
+        } catch (err) {
+          console.error(`[Receipt] ❌ Lỗi tạo hóa đơn ngầm:`, err);
 
-      //     // Hoặc nếu nó là object thì stringify nó lên để đọc
-      //     if (err.response) {
-      //       // Lỗi từ Axios/Pinata thường nằm ở đây
-      //       console.error("Axios/Pinata Error Data:", err.response.data);
-      //     }
-      //     if (fs.existsSync(pdfPath)) fs.remove(pdfPath);
-      //     if (fs.existsSync(encPath)) fs.remove(encPath);
-      //   }
-      // })();
+          // Hoặc nếu nó là object thì stringify nó lên để đọc
+          if (err.response) {
+            // Lỗi từ Axios/Pinata thường nằm ở đây
+            console.error("Axios/Pinata Error Data:", err.response.data);
+          }
+          if (fs.existsSync(pdfPath)) fs.remove(pdfPath);
+          if (fs.existsSync(encPath)) fs.remove(encPath);
+        }
+      })();
     } else {
       console.log("Không tìm thấy event nào khớp với OrderId này.");
       return res.status(400).json({

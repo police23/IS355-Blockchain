@@ -25,6 +25,12 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
         internalType: "string",
         name: "orderId",
         type: "string",
@@ -56,6 +62,12 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
         internalType: "string",
         name: "orderId",
         type: "string",
@@ -99,6 +111,12 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
         internalType: "string",
         name: "orderId",
         type: "string",
@@ -148,6 +166,12 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
         internalType: "string",
         name: "orderId",
         type: "string",
@@ -216,6 +240,12 @@ const ESCROW_ABI = [
       },
       {
         indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
         internalType: "string",
         name: "orderId",
         type: "string",

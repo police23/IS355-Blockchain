@@ -7,6 +7,11 @@ pragma solidity ^0.8.20;
  *  - Phase 1: owner tạo escrow với orderId + amount (EscrowCreated).
  *  - Phase 2: buyer gọi depositEscrow(orderId) để nạp đúng amount đã định,
  *    nếu khớp thì escrow Active, sau đó mới release/refund như cũ.
+ *
+ * orderId là string (ví dụ "76", "ORDER-123") đúng với mã đơn off-chain.
+ * Trên event:
+ *  - orderKey = keccak256(bytes(orderId)) được indexed (bytes32) để filter log.
+ *  - orderId (string) giữ nguyên chuỗi gốc để dễ đọc trên explorer.
  */
 contract BookStoreEscrow {
     /* ========== Types ========== */
@@ -46,24 +51,24 @@ contract BookStoreEscrow {
     address public owner;
     address public immutable merchantWallet;
 
-    // On-contract timeout for escrow (7 days).
+    // On-contract timeout cho escrow (7 ngày)
     uint256 public constant ESCROW_TIMEOUT = 7 days;
 
     // orderId (string) => EscrowInfo
     mapping(string => EscrowInfo) private escrows;
 
-    // Active order IDs for quick querying from frontend/backend.
+    // Danh sách orderId đang Active để FE/BE query nhanh
     string[] private activeOrderIds;
-    // orderId => index+1 in activeOrderIds array (0 = not active)
+    // orderId => index+1 trong activeOrderIds (0 = không active)
     mapping(string => uint256) private activeOrderIndex;
 
-    // Aggregated stats
+    // Stats
     uint256 public activeEscrowCount;
     uint256 public totalAmountInEscrow;
 
-    // On-chain payment log (audit trail)
+    // Payment log on-chain (audit trail)
     Payment[] private payments;
-    // orderId (string) => list of paymentIds
+    // orderId (string) => danh sách paymentId
     mapping(string => uint256[]) private orderPaymentIds;
 
     /* ========== Reentrancy Guard ========== */
@@ -76,9 +81,13 @@ contract BookStoreEscrow {
 
     /**
      * Phase 1: backend tạo slot escrow (chưa có buyer, chưa có tiền)
+     *
+     * orderKey = keccak256(bytes(orderId)) để filter log,
+     * orderId giữ chuỗi gốc để dễ đọc.
      */
     event EscrowCreated(
-        string indexed orderId,
+        bytes32 indexed orderKey,
+        string  orderId,
         uint256 amount,
         address indexed seller,
         uint256 createdAt   // thời điểm tạo slot (không phải deposit)
@@ -88,7 +97,8 @@ contract BookStoreEscrow {
      * Phase 2: buyer nạp tiền vào escrow đã tạo sẵn
      */
     event EscrowFunded(
-        string indexed orderId,
+        bytes32 indexed orderKey,
+        string  orderId,
         address indexed buyer,
         address indexed seller,
         uint256 amount,
@@ -97,7 +107,8 @@ contract BookStoreEscrow {
     );
 
     event EscrowReleased(
-        string indexed orderId,
+        bytes32 indexed orderKey,
+        string  orderId,
         address indexed buyer,
         address indexed seller,
         uint256 amount,
@@ -106,7 +117,8 @@ contract BookStoreEscrow {
     );
 
     event EscrowRefunded(
-        string indexed orderId,
+        bytes32 indexed orderKey,
+        string  orderId,
         address indexed buyer,
         address indexed seller,
         uint256 amount,
@@ -117,7 +129,8 @@ contract BookStoreEscrow {
 
     event PaymentRecorded(
         uint256 indexed paymentId,
-        string indexed orderId,
+        bytes32 indexed orderKey,
+        string  orderId,
         uint256 amount,
         PaymentStatus status,
         uint256 timestamp,
@@ -182,7 +195,9 @@ contract BookStoreEscrow {
         e.createdAt = 0; // sẽ set khi deposit
         e.status = EscrowStatus.Pending;
 
-        emit EscrowCreated(orderId, amount, e.seller, block.timestamp);
+        bytes32 orderKey = keccak256(bytes(orderId));
+
+        emit EscrowCreated(orderKey, orderId, amount, e.seller, block.timestamp);
     }
 
     /* ========== Phase 2: buyer nạp tiền vào escrow đã chuẩn bị ========== */
@@ -209,8 +224,9 @@ contract BookStoreEscrow {
         _addActiveOrder(orderId);
 
         uint256 timeoutAt = block.timestamp + ESCROW_TIMEOUT;
+        bytes32 orderKey = keccak256(bytes(orderId));
 
-        emit EscrowFunded(orderId, e.buyer, e.seller, msg.value, e.createdAt, timeoutAt);
+        emit EscrowFunded(orderKey, orderId, e.buyer, e.seller, msg.value, e.createdAt, timeoutAt);
 
         // Ghi log thanh toán on-chain
         _recordPayment(orderId, msg.value, PaymentStatus.EscrowCreated);
@@ -242,7 +258,9 @@ contract BookStoreEscrow {
         (bool ok, ) = seller.call{value: amount}("");
         require(ok, "BookStoreEscrow: transfer failed");
 
-        emit EscrowReleased(orderId, buyer, seller, amount, msg.sender, block.timestamp);
+        bytes32 orderKey = keccak256(bytes(orderId));
+
+        emit EscrowReleased(orderKey, orderId, buyer, seller, amount, msg.sender, block.timestamp);
 
         _recordPayment(orderId, amount, PaymentStatus.EscrowReleased);
     }
@@ -283,7 +301,9 @@ contract BookStoreEscrow {
         (bool ok, ) = buyer.call{value: amount}("");
         require(ok, "BookStoreEscrow: refund failed");
 
-        emit EscrowRefunded(orderId, buyer, seller, amount, msg.sender, block.timestamp, timeoutReached);
+        bytes32 orderKey = keccak256(bytes(orderId));
+
+        emit EscrowRefunded(orderKey, orderId, buyer, seller, amount, msg.sender, block.timestamp, timeoutReached);
 
         _recordPayment(orderId, amount, PaymentStatus.EscrowRefunded);
     }
@@ -297,6 +317,7 @@ contract BookStoreEscrow {
     ) internal {
         uint256 paymentId = payments.length;
         address sender = msg.sender;
+        bytes32 orderKey = keccak256(bytes(orderId));
 
         payments.push(
             Payment({
@@ -312,6 +333,7 @@ contract BookStoreEscrow {
 
         emit PaymentRecorded(
             paymentId,
+            orderKey,
             orderId,
             amount,
             status,
@@ -354,7 +376,7 @@ contract BookStoreEscrow {
             return;
         }
         activeOrderIds.push(orderId);
-        // index is 1-based
+        // index là 1-based
         activeOrderIndex[orderId] = activeOrderIds.length;
     }
 
