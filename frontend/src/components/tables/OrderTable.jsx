@@ -5,6 +5,7 @@ import {
   getAllConfirmedOrders,
   getAllDeliveredOrders,
   getAllDeliveringOrders,
+  getAllCancelledOrders,
   confirmOrder,
   assignOrderToShipper,
 } from "../../services/OrderService";
@@ -68,11 +69,17 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
       } else if (type === "delivered") {
         response = await getAllDeliveredOrders(currentPage, pageSize);
       }
+        else if (type === "cancelled") {
+        response = await getAllCancelledOrders(currentPage, pageSize);
+      }
       console.log("OrderTable fetchOrders response:", response);
 
       // API trả về { success: true, data: { orders, total } }
+      // Normalize response so we support both raw axios responses and helpers
+      // that already return `response.data`.
       const apiData = response.data || response;
-      const ordersData = apiData.orders || [];
+      const dataObj = apiData.data || apiData; // now dataObj should have { orders, total }
+      const ordersData = dataObj.orders || [];
 
       if (!Array.isArray(ordersData)) {
         console.error("Orders data is not an array:", ordersData);
@@ -83,7 +90,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
       }
 
       setOrders(ordersData);
-      setTotal(apiData.total || 0);
+      setTotal(dataObj.total || 0);
       console.log("orders after fetch:", ordersData);
     } catch (error) {
       setNotification({ message: "Lỗi khi tải đơn hàng.", type: "error" });

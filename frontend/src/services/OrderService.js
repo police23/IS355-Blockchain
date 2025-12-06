@@ -69,6 +69,13 @@ export const getAllDeliveredOrders = async (page = 1, pageSize = 10) => {
   return response.data;
 };
 
+export const getAllCancelledOrders = async (page = 1, pageSize = 10) => {
+  const response = await axios.get(`${ORDER_API_URL}/cancelled/all?page=${page}&pageSize=${pageSize}`, {
+    headers: getAuthHeader()
+  });
+  return response.data;
+};
+
 
 export const getConfirmedOrdersByUserID = async (page = 1, pageSize = 10) => {
   const response = await axios.get(`${ORDER_API_URL}/confirmed?page=${page}&pageSize=${pageSize}`, { headers: getAuthHeader() });

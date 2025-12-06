@@ -38,6 +38,7 @@ router.get(
   OrderController.getAllOrdersByStatus
 );
 router.get("/delivered/all", verifyToken, OrderController.getAllOrdersByStatus);
+router.get("/cancelled/all", verifyToken, OrderController.getAllOrdersByStatus);
 router.get("/", verifyToken, OrderController.getOrdersByUserID);
 router.post("/", verifyToken, OrderController.createOrder);
 router.patch("/:orderId/confirm", verifyToken, OrderController.confirmOrder);
