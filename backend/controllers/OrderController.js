@@ -2,6 +2,11 @@ const OrderService = require("../services/OrderService");
 const EscrowService = require("../services/EscrowService");
 const { ESCROW_ABI } = require("../utils/escrowClient");
 const { ethers } = require("ethers");
+const { Order } = require("../models");
+const ReceiptService = require("../services/ReceptService");
+const OrderRegistryService = require("../services/OrderRegistryService");
+const fs = require("fs-extra");
+const path = require("path");
 const getOrdersByUserID = async (req, res) => {
   try {
     const userID = req.user.id;
@@ -154,573 +159,121 @@ const getBytes32FromId = (id) => {
   return ethers.keccak256(ethers.toUtf8Bytes(String(id)));
 };
 
+const fetchEthPriceVnd = async () => {
+  const res = await fetch(
+    "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=vnd"
+  );
+  if (!res.ok) {
+    throw new Error("Không lấy được tỷ giá ETH/VND");
+  }
+  const data = await res.json();
+  const price = Number(data?.ethereum?.vnd);
+  if (!price || !Number.isFinite(price)) {
+    throw new Error("Giá ETH/VND không hợp lệ");
+  }
+  console.log("ETH/VND price:", price);
+  return price; // VND cho 1 ETH
+};
 const createCryptoOrder = async (req, res) => {
   try {
-    const { amount, userId, orderId } = req.body; // Lấy thông tin từ request
+    const { amount, userId, orderId, buyerWalletAddress } = req.body; // Lấy thông tin từ request
     const contractAddress = process.env.ESCROW_CONTRACT_ADDRESS;
-    const abi = [
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "confirmEscrow",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "createEscrow",
-        outputs: [],
-        stateMutability: "payable",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "address",
-            name: "_merchantWallet",
-            type: "address",
-          },
-        ],
-        stateMutability: "nonpayable",
-        type: "constructor",
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "buyer",
-            type: "address",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "seller",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "createdAt",
-            type: "uint256",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "timeoutAt",
-            type: "uint256",
-          },
-        ],
-        name: "EscrowCreated",
-        type: "event",
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "buyer",
-            type: "address",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "seller",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-          {
-            indexed: false,
-            internalType: "address",
-            name: "refundedBy",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "refundedAt",
-            type: "uint256",
-          },
-          {
-            indexed: false,
-            internalType: "bool",
-            name: "timeout",
-            type: "bool",
-          },
-        ],
-        name: "EscrowRefunded",
-        type: "event",
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "buyer",
-            type: "address",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "seller",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-          {
-            indexed: false,
-            internalType: "address",
-            name: "releasedBy",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "releasedAt",
-            type: "uint256",
-          },
-        ],
-        name: "EscrowReleased",
-        type: "event",
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "seller",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "confirmedAt",
-            type: "uint256",
-          },
-        ],
-        name: "EscrowSellerConfirmed",
-        type: "event",
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: "address",
-            name: "previousOwner",
-            type: "address",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "newOwner",
-            type: "address",
-          },
-        ],
-        name: "OwnershipTransferred",
-        type: "event",
-      },
-      {
-        anonymous: false,
-        inputs: [
-          {
-            indexed: true,
-            internalType: "uint256",
-            name: "paymentId",
-            type: "uint256",
-          },
-          {
-            indexed: true,
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-          {
-            indexed: true,
-            internalType: "address",
-            name: "payer",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "address",
-            name: "payee",
-            type: "address",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "amount",
-            type: "uint256",
-          },
-          {
-            indexed: false,
-            internalType: "enum BookStoreEscrow.PaymentStatus",
-            name: "status",
-            type: "uint8",
-          },
-          {
-            indexed: false,
-            internalType: "uint256",
-            name: "timestamp",
-            type: "uint256",
-          },
-        ],
-        name: "PaymentRecorded",
-        type: "event",
-      },
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "refundEscrow",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "releaseEscrow",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "address",
-            name: "newOwner",
-            type: "address",
-          },
-        ],
-        name: "transferOwnership",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-      },
-      {
-        stateMutability: "payable",
-        type: "fallback",
-      },
-      {
-        stateMutability: "payable",
-        type: "receive",
-      },
-      {
-        inputs: [],
-        name: "activeEscrowCount",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [],
-        name: "ESCROW_TIMEOUT",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [],
-        name: "getActiveOrderIds",
-        outputs: [
-          {
-            internalType: "bytes32[]",
-            name: "",
-            type: "bytes32[]",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "getEscrow",
-        outputs: [
-          {
-            components: [
-              {
-                internalType: "address",
-                name: "buyer",
-                type: "address",
-              },
-              {
-                internalType: "address",
-                name: "seller",
-                type: "address",
-              },
-              {
-                internalType: "uint256",
-                name: "amount",
-                type: "uint256",
-              },
-              {
-                internalType: "uint256",
-                name: "createdAt",
-                type: "uint256",
-              },
-              {
-                internalType: "enum BookStoreEscrow.EscrowStatus",
-                name: "status",
-                type: "uint8",
-              },
-              {
-                internalType: "bool",
-                name: "sellerConfirmed",
-                type: "bool",
-              },
-              {
-                internalType: "uint256",
-                name: "sellerConfirmedAt",
-                type: "uint256",
-              },
-            ],
-            internalType: "struct BookStoreEscrow.EscrowInfo",
-            name: "",
-            type: "tuple",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "getOrderPaymentIds",
-        outputs: [
-          {
-            internalType: "uint256[]",
-            name: "",
-            type: "uint256[]",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "uint256",
-            name: "paymentId",
-            type: "uint256",
-          },
-        ],
-        name: "getPayment",
-        outputs: [
-          {
-            components: [
-              {
-                internalType: "bytes32",
-                name: "orderId",
-                type: "bytes32",
-              },
-              {
-                internalType: "address",
-                name: "payer",
-                type: "address",
-              },
-              {
-                internalType: "address",
-                name: "payee",
-                type: "address",
-              },
-              {
-                internalType: "uint256",
-                name: "amount",
-                type: "uint256",
-              },
-              {
-                internalType: "uint256",
-                name: "timestamp",
-                type: "uint256",
-              },
-              {
-                internalType: "enum BookStoreEscrow.PaymentStatus",
-                name: "status",
-                type: "uint8",
-              },
-            ],
-            internalType: "struct BookStoreEscrow.Payment",
-            name: "",
-            type: "tuple",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [],
-        name: "getPaymentsLength",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [
-          {
-            internalType: "bytes32",
-            name: "orderId",
-            type: "bytes32",
-          },
-        ],
-        name: "isActive",
-        outputs: [
-          {
-            internalType: "bool",
-            name: "",
-            type: "bool",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [],
-        name: "merchantWallet",
-        outputs: [
-          {
-            internalType: "address",
-            name: "",
-            type: "address",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [],
-        name: "owner",
-        outputs: [
-          {
-            internalType: "address",
-            name: "",
-            type: "address",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-      {
-        inputs: [],
-        name: "totalAmountInEscrow",
-        outputs: [
-          {
-            internalType: "uint256",
-            name: "",
-            type: "uint256",
-          },
-        ],
-        stateMutability: "view",
-        type: "function",
-      },
-    ];
+    const abi = ESCROW_ABI;
+    // 1) Lấy tỷ giá ETH/VND
+    const ethPriceVnd = await fetchEthPriceVnd(); // VND cho 1 ETH
+    const totalVndNumber = Number(amount);
+    if (
+      !totalVndNumber ||
+      !Number.isFinite(totalVndNumber) ||
+      totalVndNumber <= 0
+    ) {
+      throw new Error("Tổng tiền đơn hàng không hợp lệ");
+    }
+    console.log(
+      "Crypto payment - totalVnd:",
+      totalVndNumber,
+      "ethPriceVnd:",
+      ethPriceVnd
+    );
 
+    // 2) Tính amountInWei bằng BigInt (tránh sai số số thực)
+    const totalVndBig = BigInt(Math.round(totalVndNumber)); // VND
+    const ethPriceVndBig = BigInt(Math.round(ethPriceVnd)); // VND cho 1 ETH
+    const weiPerEth = 10n ** 18n; // 1 ETH = 10^18 wei
+    const amountInWeiBig = (totalVndBig * weiPerEth) / ethPriceVndBig;
+    if (amountInWeiBig <= 0n) {
+      throw new Error("Số wei tính được không hợp lệ");
+    }
+    const amountInWeiHex = "0x" + amountInWeiBig.toString(16);
+    console.log(
+      "amountInWeiBig:",
+      amountInWeiBig.toString(),
+      "amountInWeiHex:",
+      amountInWeiHex
+    );
     if (!contractAddress) {
       return res.status(500).json({
         success: false,
         message: "Server chưa cấu hình Contract Address",
       });
     }
+    if (buyerWalletAddress) {
+      // Giả sử bạn dùng Sequelize
+      await Order.update(
+        { buyer_wallet_address: buyerWalletAddress },
+        { where: { id: orderId } }
+      );
+      console.log(`Đã cập nhật ví ${buyerWalletAddress} cho đơn ${orderId}`);
+    }
+    if (amountInWeiHex) {
+      // Giả sử bạn dùng Sequelize
+      await Order.update(
+        { crypto_amount: amountInWeiHex },
+        { where: { id: orderId } }
+      );
+      console.log(
+        `Đã cập nhật crypto_amount ${amountInWeiHex} cho đơn ${orderId}`
+      );
+    }
+
+    // 3. GỌI ORDER REGISTRY ON-CHAIN (QUAN TRỌNG)
+    // Chạy ngầm (Fire-and-forget) để không block response cho Frontend
+    // Frontend cần nhận ABI ngay để kịp bật MetaMask
+    (async () => {
+      try {
+        // Nếu không có ví người mua thì dùng địa chỉ null hoặc admin
+        const buyerAddr =
+          buyerWalletAddress || "0x0000000000000000000000000000000000000000";
+
+        // Gọi Service để ghi lên OrderRegistry Contract
+        await OrderRegistryService.createOrderOnChain(
+          orderId.toString(), // ID đơn hàng
+          buyerAddr, // Ví người mua
+          amount, // Số tiền (VND hoặc ETH tùy logic bạn chọn)
+          "pending" // Status ban đầu
+        );
+        console.log(
+          `[Blockchain] Đã ghi OrderRegistry thành công cho đơn: ${orderId}`
+        );
+        await EscrowService.createEscrowOnChain(
+          orderId.toString(), // ID đơn hàng
+          amountInWeiBig // Số tiền (VND hoặc ETH tùy logic bạn chọn)
+        );
+        console.log(
+          `[Blockchain] Đã ghi Escrow thành công cho đơn: ${orderId}`
+        );
+      } catch (err) {
+        console.error(`[Blockchain] Lỗi ghi OrderRegistry: ${err.message}`);
+        // Ở đây chỉ log lỗi, không làm fail request của user vì đây là tính năng lưu trữ/audit
+      }
+    })();
     // Trả về thông tin + ABI cho Frontend dùng
     return res.status(200).json({
       success: true,
       data: {
         orderId,
         amount,
+        amountInWeiHex,
         contractAddress: contractAddress,
         abi: abi,
       },
@@ -741,6 +294,10 @@ const submitCryptoResult = async (req, res) => {
       return res.status(400).json({ success: false, message: "Thiếu orderId" });
     }
 
+    const order = await Order.findByPk(orderId);
+    if (!order)
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+
     // 1. Setup Provider (Kết nối mạng Sepolia)
     // Đảm bảo file .env có RPC_URL (VD: Alchemy, Infura hoặc Google RPC)
     const provider = new ethers.JsonRpcProvider(process.env.ESCROW_RPC_URL);
@@ -754,19 +311,13 @@ const submitCryptoResult = async (req, res) => {
 
     // 3. Chuẩn bị filter
     // Contract lưu orderId dưới dạng bytes32, nên ta phải hash orderId string sang bytes32
-    const orderIdBytes32 = getBytes32FromId(orderId);
 
-    console.log(
-      `Checking events for Order: ${orderId} (Hash: ${orderIdBytes32})`
-    );
+    console.log(`Checking events for Order: ${orderId})`);
 
     // 4. Quét Log (Event) trên Blockchain
     // contract.filters.PaymentRecorded(arg1, arg2...)
-    // arg2 là orderId. Nếu orderId trong Solidity có 'indexed', ta truyền vào để lọc.
-    // Nếu không có 'indexed', ta phải để null và lọc thủ công bằng JS.
 
-    // GIẢ ĐỊNH 1: orderId CÓ 'indexed' (Cách chuẩn)
-    const filter = contract.filters.PaymentRecorded(null, orderIdBytes32);
+    const filter = contract.filters.PaymentRecorded(null, orderId.toString());
 
     // Tìm trong 2000 block gần nhất (Sepolia block time ~12s => 2000 blocks ~ 6.5 giờ)
     // Tùy chỉnh số này nếu muốn tìm xa hơn
@@ -788,14 +339,72 @@ const submitCryptoResult = async (req, res) => {
 
       console.log("Tìm thấy giao dịch thành công:", paymentInfo);
 
-      // TODO: Cập nhật Database của bạn ở đây
-      // await Order.findOneAndUpdate({ orderId }, { status: 'PAID', paymentInfo });
-
-      return res.status(200).json({
+      res.status(200).json({
         success: true,
-        message: "Giao dịch đã được xác nhận trên Blockchain",
+        message: "Xác nhận thanh toán thành công. Hóa đơn đang được tạo...",
         data: paymentInfo,
       });
+      // (async () => {
+      //   const tempDir = path.join(__dirname, "../temp");
+      //   const pdfPath = path.join(tempDir, `invoice_${orderId}.pdf`);
+      //   const encPath = path.join(tempDir, `invoice_${orderId}.enc`);
+
+      //   try {
+      //     console.log(
+      //       `[Receipt] Bắt đầu quy trình tạo hóa đơn cho đơn: ${orderId}`
+      //     );
+
+      //     // A. Chuẩn bị thư mục
+      //     await fs.ensureDir(tempDir);
+      //     const timestamp = new Date(order.createdAt).getTime();
+
+      //     // B. Tạo PDF
+      //     await ReceiptService.generatePDF(order, pdfPath);
+
+      //     // C. Mã hóa PDF
+      //     await ReceiptService.encryptFile(
+      //       pdfPath,
+      //       encPath,
+      //       order.user_id,
+      //       order.id,
+      //       timestamp
+      //     );
+
+      //     // D. Upload lên IPFS
+      //     const cid = await ReceiptService.uploadToIPFS(
+      //       encPath,
+      //       `Receipt_${orderId}`
+      //     );
+      //     console.log(`[Receipt] Upload IPFS thành công. CID: ${cid}`);
+
+      //     // E. Lưu vào Smart Contract OrderRegistry (Quan trọng!)
+      //     // Hàm này tốn khoảng 15s để đào block
+      //     await OrderRegistryService.saveReceiptCID(order.id.toString(), cid);
+      //     console.log(`[Receipt] Đã lưu CID lên Blockchain`);
+
+      //     // F. Cập nhật lại DB lần nữa
+      //     // Lúc này đơn hàng chính thức có hóa đơn
+      //     await Order.update({ receipt_cid: cid }, { where: { id: orderId } });
+
+      //     // G. Dọn dẹp file rác
+      //     await fs.remove(pdfPath);
+      //     await fs.remove(encPath);
+
+      //     console.log(
+      //       `[Receipt] ✅ Hoàn tất toàn bộ quy trình cho đơn ${orderId}`
+      //     );
+      //   } catch (err) {
+      //     console.error(`[Receipt] ❌ Lỗi tạo hóa đơn ngầm:`, err);
+
+      //     // Hoặc nếu nó là object thì stringify nó lên để đọc
+      //     if (err.response) {
+      //       // Lỗi từ Axios/Pinata thường nằm ở đây
+      //       console.error("Axios/Pinata Error Data:", err.response.data);
+      //     }
+      //     if (fs.existsSync(pdfPath)) fs.remove(pdfPath);
+      //     if (fs.existsSync(encPath)) fs.remove(encPath);
+      //   }
+      // })();
     } else {
       console.log("Không tìm thấy event nào khớp với OrderId này.");
       return res.status(400).json({
@@ -818,7 +427,7 @@ const getEventsByOrderId = async (req, res) => {
     console.log(orderId);
     // Gọi sang chuyên gia EscrowService để lấy log
     // (Hàm getEventsByOrderId bạn đã viết trong EscrowService ở bước trước)
-    const events = await EscrowService.getEventsByOrderId(orderId);
+    const events = await EscrowService.getEventsByOrderId(orderId.toString());
 
     res.json({
       success: true,
@@ -852,12 +461,10 @@ const getAllOrderEvents = async (req, res) => {
     // 4. Trả về kết quả
     return res.status(200).json({
       success: true,
-      data: events,
-      pagination: {
-        page,
-        limit,
-        total: events.total,
-      },
+      items: events.rows,
+      page,
+      limit,
+      total: events.total,
     });
   } catch (error) {
     console.error("[EscrowController] Lỗi lấy danh sách sự kiện:", error);

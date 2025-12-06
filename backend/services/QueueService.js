@@ -1,7 +1,7 @@
 // services/QueueService.js
 const redisClient = require("../config/redis");
 const db = require("../db"); // MySQL Connection
-
+const ReceiptController = require("../controllers/ReceiptController.js"); // Import Controller
 const QUEUE_KEY = "blockchain_events_queue";
 
 class QueueService {

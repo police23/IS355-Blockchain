@@ -12,19 +12,6 @@ const ESCROW_ABI = [
   {
     inputs: [
       {
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-    ],
-    name: "createEscrow",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
         internalType: "address",
         name: "_merchantWallet",
         type: "address",
@@ -38,9 +25,40 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "seller",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "createdAt",
+        type: "uint256",
+      },
+    ],
+    name: "EscrowCreated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "string",
+        name: "orderId",
+        type: "string",
       },
       {
         indexed: true,
@@ -63,7 +81,7 @@ const ESCROW_ABI = [
       {
         indexed: false,
         internalType: "uint256",
-        name: "createdAt",
+        name: "fundedAt",
         type: "uint256",
       },
       {
@@ -73,7 +91,7 @@ const ESCROW_ABI = [
         type: "uint256",
       },
     ],
-    name: "EscrowCreated",
+    name: "EscrowFunded",
     type: "event",
   },
   {
@@ -81,9 +99,9 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
+        type: "string",
       },
       {
         indexed: true,
@@ -130,9 +148,9 @@ const ESCROW_ABI = [
     inputs: [
       {
         indexed: true,
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
+        type: "string",
       },
       {
         indexed: true,
@@ -198,21 +216,9 @@ const ESCROW_ABI = [
       },
       {
         indexed: true,
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "payer",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "payee",
-        type: "address",
+        type: "string",
       },
       {
         indexed: false,
@@ -232,69 +238,19 @@ const ESCROW_ABI = [
         name: "timestamp",
         type: "uint256",
       },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
     ],
     name: "PaymentRecorded",
     type: "event",
   },
   {
-    inputs: [
-      {
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-    ],
-    name: "refundEscrow",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes32",
-        name: "orderId",
-        type: "bytes32",
-      },
-    ],
-    name: "releaseEscrow",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     stateMutability: "payable",
     type: "fallback",
-  },
-  {
-    stateMutability: "payable",
-    type: "receive",
-  },
-  {
-    inputs: [],
-    name: "activeEscrowCount",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
   },
   {
     inputs: [],
@@ -311,12 +267,12 @@ const ESCROW_ABI = [
   },
   {
     inputs: [],
-    name: "getActiveOrderIds",
+    name: "activeEscrowCount",
     outputs: [
       {
-        internalType: "bytes32[]",
+        internalType: "uint256",
         name: "",
-        type: "bytes32[]",
+        type: "uint256",
       },
     ],
     stateMutability: "view",
@@ -325,9 +281,53 @@ const ESCROW_ABI = [
   {
     inputs: [
       {
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
+        type: "string",
+      },
+      {
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+    ],
+    name: "createEscrow",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "orderId",
+        type: "string",
+      },
+    ],
+    name: "depositEscrow",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getActiveOrderIds",
+    outputs: [
+      {
+        internalType: "string[]",
+        name: "",
+        type: "string[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "orderId",
+        type: "string",
       },
     ],
     name: "getEscrow",
@@ -371,9 +371,9 @@ const ESCROW_ABI = [
   {
     inputs: [
       {
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
+        type: "string",
       },
     ],
     name: "getOrderPaymentIds",
@@ -400,19 +400,9 @@ const ESCROW_ABI = [
       {
         components: [
           {
-            internalType: "bytes32",
+            internalType: "string",
             name: "orderId",
-            type: "bytes32",
-          },
-          {
-            internalType: "address",
-            name: "payer",
-            type: "address",
-          },
-          {
-            internalType: "address",
-            name: "payee",
-            type: "address",
+            type: "string",
           },
           {
             internalType: "uint256",
@@ -428,6 +418,11 @@ const ESCROW_ABI = [
             internalType: "enum BookStoreEscrow.PaymentStatus",
             name: "status",
             type: "uint8",
+          },
+          {
+            internalType: "address",
+            name: "sender",
+            type: "address",
           },
         ],
         internalType: "struct BookStoreEscrow.Payment",
@@ -454,9 +449,9 @@ const ESCROW_ABI = [
   {
     inputs: [
       {
-        internalType: "bytes32",
+        internalType: "string",
         name: "orderId",
-        type: "bytes32",
+        type: "string",
       },
     ],
     name: "isActive",
@@ -497,6 +492,32 @@ const ESCROW_ABI = [
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "string",
+        name: "orderId",
+        type: "string",
+      },
+    ],
+    name: "refundEscrow",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "orderId",
+        type: "string",
+      },
+    ],
+    name: "releaseEscrow",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "totalAmountInEscrow",
     outputs: [
@@ -508,6 +529,23 @@ const ESCROW_ABI = [
     ],
     stateMutability: "view",
     type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "newOwner",
+        type: "address",
+      },
+    ],
+    name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    stateMutability: "payable",
+    type: "receive",
   },
 ];
 
@@ -555,8 +593,7 @@ async function hasActiveEscrow(offchainId) {
       "Escrow contract chưa được cấu hình (thiếu ENV hoặc lỗi khởi tạo)"
     );
   }
-  const orderIdBytes32 = getEscrowOrderIdBytes32(offchainId);
-  const active = await escrowContract.isActive(orderIdBytes32);
+  const active = await escrowContract.isActive(offchainId);
   return active;
 }
 
@@ -566,7 +603,7 @@ async function refundEscrowOnChain(offchainId) {
       "Escrow contract chưa được cấu hình (thiếu ENV hoặc lỗi khởi tạo)"
     );
   }
-  const orderIdBytes32 = getEscrowOrderIdBytes32(offchainId);
+  // const orderIdBytes32 = getEscrowOrderIdBytes32(offchainId);
   console.log(
     "[escrowClient] refundEscrow cho offchainId =",
     offchainId,
@@ -574,7 +611,7 @@ async function refundEscrowOnChain(offchainId) {
     orderIdBytes32
   );
 
-  const tx = await escrowContract.refundEscrow(orderIdBytes32);
+  const tx = await escrowContract.refundEscrow(offchainId);
   const receipt = await tx.wait();
 
   if (!receipt.status) {
@@ -590,7 +627,7 @@ async function releaseEscrowOnChain(offchainId) {
       "Escrow contract chưa được cấu hình (thiếu ENV hoặc lỗi khởi tạo)"
     );
   }
-  const orderIdBytes32 = getEscrowOrderIdBytes32(offchainId);
+  // const orderIdBytes32 = getEscrowOrderIdBytes32(offchainId);
   console.log(
     "[escrowClient] releaseEscrow cho offchainId =",
     offchainId,
@@ -598,7 +635,7 @@ async function releaseEscrowOnChain(offchainId) {
     orderIdBytes32
   );
 
-  const tx = await escrowContract.releaseEscrow(orderIdBytes32);
+  const tx = await escrowContract.releaseEscrow(offchainId);
   const receipt = await tx.wait();
 
   if (!receipt.status) {
