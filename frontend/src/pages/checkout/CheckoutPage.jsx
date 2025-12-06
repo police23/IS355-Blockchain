@@ -493,6 +493,13 @@ function CheckoutPage() {
             console.error("User rejected tx or insufficient funds:", err);
             alert("Bạn đã từ chối giao dịch, hoặc không có đủ số dư!");
             setIsLoading(false);
+            axiosInstance.post(
+              "http://localhost:5000/api/orders/crypto/submit-result",
+              {
+                orderId: orderId,
+                success: false,
+              }
+            );
             return;
           }
 
@@ -571,6 +578,7 @@ function CheckoutPage() {
             "http://localhost:5000/api/orders/crypto/submit-result",
             {
               orderId: orderId,
+              success: true,
             }
           );
 

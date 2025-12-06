@@ -75,7 +75,7 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
             {/* Details header removed (user requested to remove red boxed area) */}
 
             {/* Recent Interactions Table */}
-            <div style={{ width: "100%", marginTop: 8, marginBottom: 16, paddingTop: 8, borderTop: "1px solid #eee" }}>
+            <div style={{ width: "100%", marginBottom: 16, paddingTop: 8}}>
               <h4 style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <FontAwesomeIcon icon={faHistory} /> Sự kiện gần đây
               </h4>

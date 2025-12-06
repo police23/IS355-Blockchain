@@ -51,6 +51,11 @@ const orderManagerTabs = [
     label: "Đơn hàng đã giao",
     icon: <i className="fa fa-truck"></i>,
   },
+  {
+    key: "cancelled",
+    label: "Đơn hàng đã hủy",
+    icon: <i className="fa fa-trash"></i>,
+  }
 ];
 
 const cryptoTransactionTabs = [
@@ -102,6 +107,8 @@ const OrderManagementDashboard = () => {
           return <OrderTable type="delivering" />;
         case "delivered":
           return <OrderTable type="delivered" />;
+        case "cancelled":
+          return <OrderTable type="cancelled" />;
         default:
           return null;
       }
