@@ -1,5 +1,5 @@
 const express = require("express");
-const promotionController = require("../controllers/promotionController");
+const promotionController = require("../controllers/PromotionController");
 const router = express.Router();
 
 // Route lấy danh sách khuyến mãi

@@ -1,42 +1,51 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import './CheckoutPage.css';
-import PublicHeader from '../../components/common/PublicHeader';
-import { getCart, clearCart } from '../../services/CartService';
-import { useAuth } from '../../contexts/AuthContext';
-import { getAddresses } from '../../services/AddressService';
-import { getShippingMethods } from '../../services/ShippingMethodService';
-import { createZaloPayPayment } from '../../services/PaymentService';
-import axiosInstance from '../../utils/axiosInstance';
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import "./CheckoutPage.css";
+import PublicHeader from "../../components/common/PublicHeader";
+import { getCart, clearCart } from "../../services/CartService";
+import { useAuth } from "../../contexts/AuthContext";
+import { getAddresses } from "../../services/AddressService";
+import { getShippingMethods } from "../../services/ShippingMethodService";
+import { createZaloPayPayment } from "../../services/PaymentService";
+import axiosInstance from "../../utils/axiosInstance";
 import Web3 from "web3";
 
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  
+
   // Lấy thông tin từ CartPage nếu có
   const cartData = location.state?.cartData;
-  
+
   const [cartItems, setCartItems] = useState(cartData?.cartItems || []);
   const [shippingInfo, setShippingInfo] = useState({
-    fullName: '',
-    phone: '',
-    address: ''
+    fullName: "",
+    phone: "",
+    address: "",
   });
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(cartData?.appliedCoupon || null);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(
+    cartData?.appliedCoupon || null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [loading, setLoading] = useState(!cartData);
   const [error, setError] = useState(null);
   const [addressList, setAddressList] = useState([]);
-  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [selectedAddressId, setSelectedAddressId] = useState("");
   const [shippingMethods, setShippingMethods] = useState([]);
-  const [selectedShippingMethod, setSelectedShippingMethod] = useState('');
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState("");
 
   // Debug log để kiểm tra shippingMethods
-  console.log('CheckoutPage - shippingMethods:', shippingMethods, 'type:', typeof shippingMethods, 'isArray:', Array.isArray(shippingMethods));
+  console.log(
+    "CheckoutPage - shippingMethods:",
+    shippingMethods,
+    "type:",
+    typeof shippingMethods,
+    "isArray:",
+    Array.isArray(shippingMethods)
+  );
 
   // Load cart data nếu không có từ CartPage
   useEffect(() => {
@@ -50,46 +59,48 @@ function CheckoutPage() {
   useEffect(() => {
     console.log(user);
     if (user) {
-      setShippingInfo(prev => ({
+      setShippingInfo((prev) => ({
         ...prev,
-        fullName: user.full_name || '',
-        phone: user.phone || ''
+        fullName: user.full_name || "",
+        phone: user.phone || "",
       }));
       // Fetch address list
-      getAddresses().then(res => {
+      getAddresses().then((res) => {
         if (res.success) setAddressList(res.data);
       });
       // Fetch shipping methods
-      getShippingMethods().then(data => {
-        console.log('CheckoutPage - getShippingMethods result:', data); // Debug log
-        const methods = Array.isArray(data) ? data : [];
-        console.log('CheckoutPage - processed methods:', methods); // Debug log
-        setShippingMethods(methods);
-        if (methods.length > 0) {
-          setSelectedShippingMethod(methods[0].id);
-          console.log('CheckoutPage - selected method ID:', methods[0].id); // Debug log
-        }
-      }).catch(error => {
-        console.error('Error loading shipping methods:', error);
-        setShippingMethods([]);
-      });
+      getShippingMethods()
+        .then((data) => {
+          console.log("CheckoutPage - getShippingMethods result:", data); // Debug log
+          const methods = Array.isArray(data) ? data : [];
+          console.log("CheckoutPage - processed methods:", methods); // Debug log
+          setShippingMethods(methods);
+          if (methods.length > 0) {
+            setSelectedShippingMethod(methods[0].id);
+            console.log("CheckoutPage - selected method ID:", methods[0].id); // Debug log
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading shipping methods:", error);
+          setShippingMethods([]);
+        });
     }
   }, [user]);
 
   // Khi chọn địa chỉ đã lưu
   useEffect(() => {
     if (selectedAddressId && addressList.length > 0) {
-      const addr = addressList.find(a => a.id === selectedAddressId);
+      const addr = addressList.find((a) => a.id === selectedAddressId);
       if (addr) {
-        setShippingInfo(prev => ({
+        setShippingInfo((prev) => ({
           ...prev,
-          address: addr.address_line || ''
+          address: addr.address_line || "",
         }));
       }
-    } else if (selectedAddressId === '') {
-      setShippingInfo(prev => ({
+    } else if (selectedAddressId === "") {
+      setShippingInfo((prev) => ({
         ...prev,
-        address: ''
+        address: "",
       }));
     }
   }, [selectedAddressId, addressList]);
@@ -121,7 +132,7 @@ function CheckoutPage() {
       setError(null);
       const response = await getCart();
       if (response.success) {
-        const transformedItems = response.data.map(item => {
+        const transformedItems = response.data.map((item) => {
           // Transform images để có cấu trúc giống CartPage
           let images = item.images;
           if ((!images || images.length === 0) && item.image_path) {
@@ -138,12 +149,17 @@ function CheckoutPage() {
             author: item.author,
             price: item.price,
             originalPrice: item.original_price || item.price,
-            discount: item.original_price ? Math.round(((item.original_price - item.price) / item.original_price) * 100) : 0,
+            discount: item.original_price
+              ? Math.round(
+                  ((item.original_price - item.price) / item.original_price) *
+                    100
+                )
+              : 0,
             image_path: item.image_path,
             images,
             imageUrls,
             quantity: item.quantity,
-            stock: item.stock
+            stock: item.stock,
           };
         });
         setCartItems(transformedItems);
@@ -151,44 +167,54 @@ function CheckoutPage() {
         setError(response.message);
       }
     } catch (error) {
-      console.error('Error loading cart:', error);
-      setError('Có lỗi xảy ra khi tải giỏ hàng');
+      console.error("Error loading cart:", error);
+      setError("Có lỗi xảy ra khi tải giỏ hàng");
     } finally {
       setLoading(false);
     }
   };
 
   // Tính toán tổng tiền
-  const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-  const discount = appliedCoupon 
-    ? (appliedCoupon.type === 'percent' || appliedCoupon.discountType === 'percent')
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + Number(item.price) * Number(item.quantity),
+    0
+  );
+  const discount = appliedCoupon
+    ? appliedCoupon.type === "percent" ||
+      appliedCoupon.discountType === "percent"
       ? Math.round(subtotal * (appliedCoupon.discount / 100))
       : Number(appliedCoupon.discount)
     : 0;
-  
+
   // Lấy phí vận chuyển từ shipping method được chọn
-  const selectedMethod = Array.isArray(shippingMethods) ? shippingMethods.find(method => method.id === selectedShippingMethod) : null;
+  const selectedMethod = Array.isArray(shippingMethods)
+    ? shippingMethods.find((method) => method.id === selectedShippingMethod)
+    : null;
   const shippingFee = selectedMethod ? Number(selectedMethod.fee) || 0 : 0;
   const total = subtotal - discount + shippingFee;
 
   // Xử lý áp dụng mã giảm giá
   const handleApplyCoupon = () => {
     if (!couponCode.trim()) return;
-    
+
     const coupons = {
-      'SALE10': { discount: 10, description: 'Giảm 10% cho đơn hàng' },
-      'FREESHIP': { discount: 0, description: 'Miễn phí vận chuyển', freeShipping: true },
-      'NEW20': { discount: 20, description: 'Giảm 20% cho khách hàng mới' }
+      SALE10: { discount: 10, description: "Giảm 10% cho đơn hàng" },
+      FREESHIP: {
+        discount: 0,
+        description: "Miễn phí vận chuyển",
+        freeShipping: true,
+      },
+      NEW20: { discount: 20, description: "Giảm 20% cho khách hàng mới" },
     };
-    
+
     const coupon = coupons[couponCode.toUpperCase()];
     if (coupon) {
       setAppliedCoupon({ code: couponCode.toUpperCase(), ...coupon });
-      alert('Áp dụng mã giảm giá thành công!');
+      alert("Áp dụng mã giảm giá thành công!");
     } else {
-      alert('Mã giảm giá không hợp lệ!');
+      alert("Mã giảm giá không hợp lệ!");
     }
-    setCouponCode('');
+    setCouponCode("");
   };
 
   // Xử lý xóa mã giảm giá
@@ -198,101 +224,127 @@ function CheckoutPage() {
 
   // Xử lý thay đổi thông tin giao hàng
   const handleShippingInfoChange = (field, value) => {
-    setShippingInfo(prev => ({
+    setShippingInfo((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   // Xử lý quay lại giỏ hàng
   const handleBackToCart = () => {
-    navigate('/cart');
+    navigate("/cart");
   };
 
   async function localClearCart() {
     // Xóa giỏ hàng sau khi tạo đơn thành công
-      try {
-        await clearCart();
-      } catch (e) {
-        console.warn('Không thể xóa giỏ hàng ngay sau khi đặt, sẽ bỏ qua:', e?.message || e);
-      }
-      setCartItems([]);
+    try {
+      await clearCart();
+    } catch (e) {
+      console.warn(
+        "Không thể xóa giỏ hàng ngay sau khi đặt, sẽ bỏ qua:",
+        e?.message || e
+      );
+    }
+    setCartItems([]);
   }
 
   // Xử lý đặt hàng
+  // Lấy tỷ giá ETH/VND từ CoinGecko
+  const fetchEthPriceVnd = async () => {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=vnd"
+    );
+    if (!res.ok) {
+      throw new Error("Không lấy được tỷ giá ETH/VND");
+    }
+    const data = await res.json();
+    const price = Number(data?.ethereum?.vnd);
+    if (!price || !Number.isFinite(price)) {
+      throw new Error("Giá ETH/VND không hợp lệ");
+    }
+    console.log("ETH/VND price:", price);
+    return price; // VND cho 1 ETH
+  };
+
   const handlePlaceOrder = async () => {
-    console.log('handlePlaceOrder called');
+    console.log("handlePlaceOrder called");
     // Kiểm tra thông tin giao hàng
     if (!shippingInfo.fullName || !shippingInfo.phone) {
-      alert('Vui lòng điền đầy đủ thông tin giao hàng!');
+      alert("Vui lòng điền đầy đủ thông tin giao hàng!");
       return;
     }
 
     if (addressList.length > 0 && !selectedAddressId) {
-      alert('Vui lòng chọn địa chỉ giao hàng!');
+      alert("Vui lòng chọn địa chỉ giao hàng!");
       return;
     }
 
     if (addressList.length === 0 && !shippingInfo.address) {
-      alert('Vui lòng nhập địa chỉ giao hàng!');
+      alert("Vui lòng nhập địa chỉ giao hàng!");
       return;
     }
 
     if (cartItems.length === 0) {
-      alert('Giỏ hàng trống!');
+      alert("Giỏ hàng trống!");
       return;
     }
 
     setIsLoading(true);
     try {
       // Chuẩn bị địa chỉ giao hàng
-      console.log('selectedAddressId:', selectedAddressId);
-      console.log('addressList:', addressList);
-      const selectedAddress = addressList.find(a => a.id == selectedAddressId);
-      console.log('selectedAddress:', selectedAddress);
+      console.log("selectedAddressId:", selectedAddressId);
+      console.log("addressList:", addressList);
+      const selectedAddress = addressList.find(
+        (a) => a.id == selectedAddressId
+      );
+      console.log("selectedAddress:", selectedAddress);
       const fullAddress = selectedAddress
         ? [
             selectedAddress.address_line,
             selectedAddress.ward,
-            selectedAddress.district && getDistrictName(selectedAddress.district),
-            selectedAddress.province && getCityName(selectedAddress.province)
-          ].filter(Boolean).join(', ')
+            selectedAddress.district &&
+              getDistrictName(selectedAddress.district),
+            selectedAddress.province && getCityName(selectedAddress.province),
+          ]
+            .filter(Boolean)
+            .join(", ")
         : shippingInfo.address;
-      console.log('Shipping address gửi lên backend:', fullAddress);
-      
+      console.log("Shipping address gửi lên backend:", fullAddress);
+
       // Chuẩn bị payload đơn hàng
       const orderPayload = {
         userID: user.id,
-        shipping_method_id: selectedShippingMethod,
+        shipping_method_id: selectedShippingMethod || null,
         shipping_address: fullAddress,
-        promotion_code: appliedCoupon?.promotion_code || appliedCoupon?.code || '',
+        promotion_code:
+          appliedCoupon?.promotion_code || appliedCoupon?.code || "",
         total_amount: subtotal,
         shipping_fee: shippingFee,
         discount_amount: discount,
         final_amount: total,
-        payment_method: paymentMethod,
-        orderDetails: cartItems.map(item => ({
+        payment_method:
+          paymentMethod === "crypto"
+            ? "crypto"
+            : paymentMethod === "online"
+            ? "online"
+            : paymentMethod,
+        orderDetails: cartItems.map((item) => ({
           book_id: item.bookId,
           quantity: item.quantity,
-          unit_price: item.price
-        }))
+          unit_price: item.price,
+        })),
+        escrow_status: paymentMethod === "crypto" ? "active" : "none",
       };
-      console.log('Order payload gửi lên backend:', orderPayload);
-      
-      var response = null
-      // Gửi đơn hàng
-      if(paymentMethod == "crypto") 
-        console.log("crypto")
-        // nếu phương thức là crypto, post đến endpoint khác
-        // YÊU CẦU: const { contractAddress, abi, orderId, items, timestamp, amount } = orderInfo;
-      
-      else response = await axiosInstance.post('/orders', orderPayload);
+      console.log("Order payload gửi lên backend:", orderPayload);
 
-      console.log('Order response:', response ? response.data : null);
+      // Gửi đơn hàng (tạo đơn trước, sau đó mới xử lý thanh toán)
+      const response = await axiosInstance.post("/orders", orderPayload);
+
+      console.log("Order response:", response ? response.data : null);
       const createdData = response?.data?.data || response?.data || {};
-      
+
       // Xử lý phương thức thanh toán
-      if (paymentMethod === 'online') {
+      if (paymentMethod === "online") {
         const paymentInfo = `Thanh toán đơn hàng cho ${shippingInfo.fullName}`;
         // Lấy mã đơn/mã hiển thị từ response để gắn vào redirect URL
         const createdId = createdData.orderId || createdData.id;
@@ -300,128 +352,276 @@ function CheckoutPage() {
         // Sau khi thanh toán thành công, cho ZaloPay điều hướng thẳng về trang xác nhận
         // kèm query để trang OrderSuccess có thể đọc được nếu không có state
         const search = new URLSearchParams({
-          orderId: createdId ? String(createdId) : '',
-          orderCode: createdCode ? String(createdCode) : ''
+          orderId: createdId ? String(createdId) : "",
+          orderCode: createdCode ? String(createdCode) : "",
         }).toString();
-        const redirectUrl = `${window.location.origin}/order-success${search ? `?${search}` : ''}`;
+        const redirectUrl = `${window.location.origin}/order-success${
+          search ? `?${search}` : ""
+        }`;
         const res = await createZaloPayPayment({
           amount: total,
           orderInfo: paymentInfo,
-          redirectUrl
+          redirectUrl,
         });
         if (res.data && res.data.order_url) {
           // Xóa giỏ hàng sau khi tạo đơn thành công
-          await localClearCart()
+          await localClearCart();
           window.location.href = res.data.order_url;
         } else {
-          alert('Không lấy được link thanh toán ZaloPay');
+          alert("Không lấy được link thanh toán ZaloPay");
         }
         setIsLoading(false);
         return;
       }
-      // Xử lý phương thức thanh toán bằng Crypto (Metamask)
-      else if (paymentMethod === 'crypto') {
-        // mock crypto orderInfo
-        const orderInfo = {
-          contractAddress: "0x1234567890abcdef1234567890abcdef12345678",
-          abi: [
-            {
-              "inputs": [
-                { "internalType": "uint256", "name": "_id", "type": "uint256" },
-                { "internalType": "string[]", "name": "_items", "type": "string[]" },
-                { "internalType": "uint256", "name": "_timestamp", "type": "uint256" }
-              ],
-              "name": "createOrder",
-              "outputs": [],
-              "stateMutability": "payable",
-              "type": "function"
-            }
-          ],
-          id: 1,
-          items: ["item1", "item2"],
-          timestamp: Math.floor(Date.now() / 1000),
-          amount: "10000000000000000"
-        };
 
+      // Xử lý phương thức thanh toán bằng Crypto (Metamask)
+      else if (paymentMethod === "crypto") {
         try {
+          if (!window.ethereum) {
+            alert("Vui lòng cài MetaMask để sử dụng thanh toán crypto");
+            return;
+          }
+
+          // Kết nối MetaMask
           await window.ethereum.request({ method: "eth_requestAccounts" });
           const web3 = new Web3(window.ethereum);
           const accounts = await web3.eth.getAccounts();
           const accountAddress = accounts[0];
 
-          const contract = new web3.eth.Contract(orderInfo.abi, orderInfo.contractAddress);
+          const orderId = createdData.orderId || createdData.id;
+          const orderCode = createdData.orderCode || createdData.order_code;
 
+          // ---------------------------------------------------------
+          // BƯỚC 1: Gọi Backend để lấy thông tin Contract & ABI chuẩn
+          // ---------------------------------------------------------
+          // Giả sử bạn dùng axios, thay 'YOUR_API_URL' bằng đường dẫn backend thực tế
+          const initResponse = await axiosInstance.post(
+            "http://localhost:5000/api/orders/crypto/create",
+            {
+              amount: total,
+              orderId: orderId, // Gửi ID đơn hàng lên để backend biết
+              userId: user.id, // Nếu cần
+            }
+          );
+
+          if (!initResponse.data.success) {
+            throw new Error("Không thể khởi tạo giao dịch crypto từ server");
+          }
+
+          const { contractAddress, abi } = initResponse.data.data;
+          // 1) Lấy tỷ giá ETH/VND
+          const ethPriceVnd = await fetchEthPriceVnd(); // VND cho 1 ETH
+          const totalVndNumber = Number(total);
+          if (
+            !totalVndNumber ||
+            !Number.isFinite(totalVndNumber) ||
+            totalVndNumber <= 0
+          ) {
+            throw new Error("Tổng tiền đơn hàng không hợp lệ");
+          }
+          console.log(
+            "Crypto payment - totalVnd:",
+            totalVndNumber,
+            "ethPriceVnd:",
+            ethPriceVnd
+          );
+
+          // 2) Tính amountInWei bằng BigInt (tránh sai số số thực)
+          const totalVndBig = BigInt(Math.round(totalVndNumber)); // VND
+          const ethPriceVndBig = BigInt(Math.round(ethPriceVnd)); // VND cho 1 ETH
+          const weiPerEth = 10n ** 18n; // 1 ETH = 10^18 wei
+          const amountInWeiBig = (totalVndBig * weiPerEth) / ethPriceVndBig;
+          if (amountInWeiBig <= 0n) {
+            throw new Error("Số wei tính được không hợp lệ");
+          }
+          const amountInWeiHex = "0x" + amountInWeiBig.toString(16);
+          console.log(
+            "amountInWeiBig:",
+            amountInWeiBig.toString(),
+            "amountInWeiHex:",
+            amountInWeiHex
+          );
+
+          // // 3) Chuẩn bị thông tin contract (demo)
+          // const orderInfo = {
+          //   contractAddress: "0xbeC2557de11f181F1066DbDcc1A5c1350C3244C9", // TODO: thay bằng contract BookStoreEscrow thật
+          //   abi: [
+          //     {
+          //       inputs: [
+          //         { internalType: "bytes32", name: "orderId", type: "bytes32" },
+          //       ],
+          //       name: "createEscrow",
+          //       outputs: [],
+          //       stateMutability: "payable",
+          //       type: "function",
+          //     },
+          //   ],
+          // };
+
+          // offchainId dùng duy nhất orderId để hash, trùng với backend (refundEscrowOnChain / hasActiveEscrow)
+          const offchainId = String(orderId);
+          if (!offchainId) {
+            throw new Error("Không lấy được mã đơn hàng để tạo escrow");
+          }
+          const escrowOrderIdBytes32 = web3.utils.keccak256(offchainId);
+
+          // const contract = new web3.eth.Contract(
+          //   orderInfo.abi,
+          //   orderInfo.contractAddress
+          // );
+          const contract = new web3.eth.Contract(abi, contractAddress);
           const data = contract.methods
-            .createOrder(orderInfo.id, orderInfo.items, orderInfo.timestamp)
+            .createEscrow(escrowOrderIdBytes32)
             .encodeABI();
 
-          const transaction = {
+          const txParams = {
             from: accountAddress,
-            to: orderInfo.contractAddress,
+            to: contractAddress,
             data,
-            value: web3.utils.toHex(orderInfo.amount),
+            value: amountInWeiHex,
           };
+
+          console.log("txParams (crypto):", txParams);
 
           let txHash;
           try {
             txHash = await window.ethereum.request({
               method: "eth_sendTransaction",
-              params: [transaction]
+              params: [txParams],
             });
           } catch (err) {
-            alert("Bạn đã từ chối giao dịch, hoặc không có đủ số dư!", err);
-            console.log(err);
+            console.error("User rejected tx or insufficient funds:", err);
+            alert("Bạn đã từ chối giao dịch, hoặc không có đủ số dư!");
             setIsLoading(false);
             return;
           }
 
+          console.log("Tx hash:", txHash);
+
+          //   // 4) Không chờ receipt nữa để tránh lỗi 'Transaction not found'
+          //   await localClearCart();
+          //   const orderInfoState = {
+          //     id: orderId,
+          //     orderCode: orderCode,
+          //     total: total,
+          //     paymentMethod: paymentMethod,
+          //     txHash,
+          //   };
+          //   navigate("/order-success", { state: { orderInfo: orderInfoState } });
+          // } catch (error) {
+          //   console.error("Crypto payment error:", error);
+          //   alert(
+          //     error.message ||
+          //       "Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại!"
+          //   );
+          // } finally {
+          //   setIsLoading(false);
+          // }
+          // return;
+          // ---------------------------------------------------------
+          // BƯỚC 4: QUAN TRỌNG - Chờ giao dịch được xác nhận (Mined)
+          // ---------------------------------------------------------
+          // Backend chỉ check được event khi giao dịch đã vào block.
+          // Ta dùng hàm poll đơn giản để đợi receipt.
+          // Hàm chờ (Delay)
+          const wait = (ms) =>
+            new Promise((resolve) => setTimeout(resolve, ms));
+
           let receipt = null;
-          while (!receipt) {
-            receipt = await web3.eth.getTransactionReceipt(txHash);
-            if (!receipt) await new Promise(r => setTimeout(r, 1500));
+          let attempts = 0;
+          const maxAttempts = 30; // Thử tối đa 30 lần (khoảng 60s)
+
+          while (receipt === null && attempts < maxAttempts) {
+            try {
+              // Đợi 2 giây trước mỗi lần kiểm tra
+              await wait(2000);
+
+              // Gọi thử xem có receipt chưa
+              receipt = await web3.eth.getTransactionReceipt(txHash);
+
+              if (receipt) {
+                console.log("Đã tìm thấy receipt:", receipt);
+                if (!receipt.status) {
+                  throw new Error(
+                    "Giao dịch bị Blockchain từ chối (Reverted)!"
+                  );
+                }
+                break; // Thoát vòng lặp nếu thành công
+              }
+
+              console.log(`Đang chờ xác nhận... (Lần thử ${attempts + 1})`);
+            } catch (err) {
+              // Nếu web3 ném lỗi "Transaction not found", ta cứ lờ đi và thử lại
+              console.log("Chưa tìm thấy transaction, đang thử lại...");
+            }
+
+            attempts++;
           }
 
-          if (receipt.status) {
-            console.log("Giao dịch thành công:", receipt);
-            await localClearCart()
-            // Navigate to success page
-            const orderInfo = {
-              id: createdData.orderId || createdData.id,
+          if (!receipt) {
+            throw new Error(
+              "Giao dịch quá lâu hoặc mạng bị nghẽn. Vui lòng kiểm tra Etherscan."
+            );
+          }
+
+          // ---------------------------------------------------------
+          // BƯỚC 5: Gọi Backend để xác nhận kết quả (Submit Result)
+          // ---------------------------------------------------------
+          const confirmResponse = await axiosInstance.post(
+            "http://localhost:5000/api/orders/crypto/submit-result",
+            {
+              orderId: orderId,
+            }
+          );
+
+          if (confirmResponse.data.success) {
+            // ---------------------------------------------------------
+            // BƯỚC 6: Thành công hoàn toàn -> Chuyển trang
+            // ---------------------------------------------------------
+            await localClearCart();
+            const orderInfoState = {
+              id: orderId,
               orderCode: createdData.orderCode || createdData.order_code,
               total: total,
-              paymentMethod: paymentMethod
+              paymentMethod: paymentMethod,
+              txHash,
             };
-            navigate('/order-success', { state: { orderInfo } });
+            navigate("/order-success", {
+              state: { orderInfo: orderInfoState },
+            });
           } else {
-            console.log("Giao dịch thất bại:", receipt);
-            alert("Giao dịch thất bại. Vui lòng thử lại!");
+            alert(
+              "Giao dịch blockchain thành công nhưng server chưa xác nhận được. Vui lòng liên hệ admin."
+            );
           }
         } catch (error) {
-          console.error('Crypto payment error:', error);
-          alert('Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại!');
+          console.error("Crypto payment error:", error);
+          alert(error.message || "Có lỗi xảy ra khi xử lý thanh toán.");
         } finally {
           setIsLoading(false);
         }
         return;
       }
-      
       // Chuyển hướng đến trang đặt hàng thành công
       const orderInfo = {
         id: createdData.orderId || createdData.id,
         orderCode: createdData.orderCode || createdData.order_code,
         total: total,
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
       };
-      
-      // navigate('/order-success', { state: { orderInfo } });
-      
+
+      navigate("/order-success", { state: { orderInfo } });
     } catch (error) {
-      console.error('Order error:', error);
-      let msg = 'Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!';
+      console.error("Order error:", error);
+      let msg = "Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!";
       if (error.response && error.response.data && error.response.data.detail) {
-        msg += '\n' + JSON.stringify(error.response.data.detail);
-      } else if (error.response && error.response.data && error.response.data.error) {
-        msg += '\n' + error.response.data.error;
+        msg += "\n" + JSON.stringify(error.response.data.detail);
+      } else if (
+        error.response &&
+        error.response.data &&
+        error.response.data.error
+      ) {
+        msg += "\n" + error.response.data.error;
       }
       alert(msg);
     } finally {
@@ -431,45 +631,53 @@ function CheckoutPage() {
 
   // Format tiền tệ
   const formatCurrency = (amount) => {
-    return amount.toLocaleString('vi-VN') + 'đ';
+    return amount.toLocaleString("vi-VN") + "đ";
   };
 
   // Hàm lấy URL ảnh đúng chuẩn backend cho item
   const getBookImageUrl = (item) => {
-    const BACKEND_URL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');
+    const BACKEND_URL = import.meta.env.VITE_API_BASE_URL?.replace("/api", "");
     // Ưu tiên lấy từ images (mảng)
     if (item.images && Array.isArray(item.images) && item.images.length > 0) {
       const imagePath = item.images[0].image_path;
-      return imagePath.startsWith('http') ? imagePath : `${BACKEND_URL}${imagePath}`;
+      return imagePath.startsWith("http")
+        ? imagePath
+        : `${BACKEND_URL}${imagePath}`;
     }
     // Fallback cho imageUrls (mảng)
-    if (item.imageUrls && Array.isArray(item.imageUrls) && item.imageUrls.length > 0) {
+    if (
+      item.imageUrls &&
+      Array.isArray(item.imageUrls) &&
+      item.imageUrls.length > 0
+    ) {
       const url = item.imageUrls[0];
-      return url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+      return url.startsWith("http") ? url : `${BACKEND_URL}${url}`;
     }
     // Fallback cho image_path
     if (item.image_path) {
-      return item.image_path.startsWith('http') ? item.image_path : `${BACKEND_URL}${item.image_path}`;
+      return item.image_path.startsWith("http")
+        ? item.image_path
+        : `${BACKEND_URL}${item.image_path}`;
     }
     // Ảnh mặc định
-    return '/assets/book-default.jpg';
+    return "/assets/book-default.jpg";
   };
 
   const getCityName = (cityCode) => {
     const cities = {
-      'hanoi': 'Hà Nội',
-      'hcm': 'TP. Hồ Chí Minh',
-      'danang': 'Đà Nẵng',
-      'cantho': 'Cần Thơ'
+      hanoi: "Hà Nội",
+      hcm: "TP. Hồ Chí Minh",
+      danang: "Đà Nẵng",
+      cantho: "Cần Thơ",
     };
     return cities[cityCode] || cityCode;
   };
 
   const getDistrictName = (districtCode) => {
     const districts = {
-      'district1': 'Quận 1',
-      'district2': 'Quận 2',
-      'district3': 'Quận 3'
+      district1: "Quận 1",
+      district2: "Quận 2",
+      district3: "Quận 3",
     };
     return districts[districtCode] || districtCode;
   };
@@ -488,9 +696,9 @@ function CheckoutPage() {
               <div className="empty-cart-icon">🔒</div>
               <h3>Vui lòng đăng nhập</h3>
               <p>Bạn cần đăng nhập để tiếp tục thanh toán.</p>
-              <button 
+              <button
                 className="btn-continue-shopping"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate("/login")}
               >
                 Đăng nhập
               </button>
@@ -515,9 +723,9 @@ function CheckoutPage() {
               <div className="empty-cart-icon">🛒</div>
               <h3>Giỏ hàng trống</h3>
               <p>Bạn chưa có sản phẩm nào trong giỏ hàng.</p>
-              <button 
+              <button
                 className="btn-continue-shopping"
-                onClick={() => navigate('/books')}
+                onClick={() => navigate("/books")}
               >
                 Tiếp tục mua sắm
               </button>
@@ -531,7 +739,7 @@ function CheckoutPage() {
   return (
     <div className="checkout-page">
       <PublicHeader />
-      
+
       <div className="checkout-container">
         <div className="checkout-header">
           <h1>Thanh toán</h1>
@@ -564,7 +772,9 @@ function CheckoutPage() {
                   <input
                     type="text"
                     value={shippingInfo.fullName}
-                    onChange={(e) => handleShippingInfoChange('fullName', e.target.value)}
+                    onChange={(e) =>
+                      handleShippingInfoChange("fullName", e.target.value)
+                    }
                     placeholder="Nhập họ và tên"
                     readOnly
                   />
@@ -574,7 +784,9 @@ function CheckoutPage() {
                   <input
                     type="tel"
                     value={shippingInfo.phone}
-                    onChange={(e) => handleShippingInfoChange('phone', e.target.value)}
+                    onChange={(e) =>
+                      handleShippingInfoChange("phone", e.target.value)
+                    }
                     placeholder="Nhập số điện thoại"
                     readOnly
                   />
@@ -585,14 +797,15 @@ function CheckoutPage() {
                     <label>Địa chỉ giao hàng *</label>
                     <select
                       value={selectedAddressId}
-                      onChange={e => setSelectedAddressId(e.target.value)}
+                      onChange={(e) => setSelectedAddressId(e.target.value)}
                     >
                       <option value="">-- Chọn địa chỉ --</option>
-                      {addressList.map(addr => (
+                      {addressList.map((addr) => (
                         <option key={addr.id} value={addr.id}>
                           {addr.address_line}
                           {addr.ward && `, ${addr.ward}`}
-                          {addr.district && `, ${getDistrictName(addr.district)}`}
+                          {addr.district &&
+                            `, ${getDistrictName(addr.district)}`}
                           {addr.province && `, ${getCityName(addr.province)}`}
                         </option>
                       ))}
@@ -601,8 +814,9 @@ function CheckoutPage() {
                 ) : (
                   <div className="form-group">
                     <label>Chọn địa chỉ giao hàng *</label>
-                    <div style={{color: 'red', fontWeight: 500}}>
-                      Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong tài khoản trước khi đặt hàng.
+                    <div style={{ color: "red", fontWeight: 500 }}>
+                      Bạn chưa có địa chỉ giao hàng. Vui lòng thêm địa chỉ trong
+                      tài khoản trước khi đặt hàng.
                     </div>
                   </div>
                 )}
@@ -611,39 +825,43 @@ function CheckoutPage() {
             <div className="payment-section">
               <h2>Phương thức thanh toán</h2>
               <div className="payment-methods">
-              <label className="payment-method">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="cash"
-                  checked={paymentMethod === 'cash'}
-                  onChange={() => setPaymentMethod('cash')}
-                />
-                <span className="method-icon">💵</span>
-                <span className="method-text">Thanh toán khi nhận hàng (COD)</span>
-              </label>
-              <label className="payment-method">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="online"
-                  checked={paymentMethod === 'online'}
-                  onChange={() => setPaymentMethod('online')}
-                />
-                <span className="method-icon">💳</span>
-                <span className="method-text">ZaloPay</span>
-              </label>
-              <label className="payment-method">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="crypto"
-                  checked={paymentMethod === 'crypto'}
-                  onChange={() => setPaymentMethod('crypto')}
-                />
-                <span className="method-icon">🦊</span>
-                <span className="method-text">Thanh toán bằng crypto (Metamask)</span>
-              </label>
+                <label className="payment-method">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cash"
+                    checked={paymentMethod === "cash"}
+                    onChange={() => setPaymentMethod("cash")}
+                  />
+                  <span className="method-icon">💵</span>
+                  <span className="method-text">
+                    Thanh toán khi nhận hàng (COD)
+                  </span>
+                </label>
+                <label className="payment-method">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="online"
+                    checked={paymentMethod === "online"}
+                    onChange={() => setPaymentMethod("online")}
+                  />
+                  <span className="method-icon">💳</span>
+                  <span className="method-text">ZaloPay</span>
+                </label>
+                <label className="payment-method">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="crypto"
+                    checked={paymentMethod === "crypto"}
+                    onChange={() => setPaymentMethod("crypto")}
+                  />
+                  <span className="method-icon">🦊</span>
+                  <span className="method-text">
+                    Thanh toán bằng crypto (Metamask)
+                  </span>
+                </label>
               </div>
             </div>
           </div>
@@ -651,35 +869,39 @@ function CheckoutPage() {
             <div className="shipping-methods-section">
               <h2>Phương thức vận chuyển</h2>
               <div className="shipping-methods">
-                {Array.isArray(shippingMethods) && shippingMethods.map(method => (
-                  <label key={method.id} className="shipping-method">
-                    <input
-                      type="radio"
-                      name="shippingMethod"
-                      value={method.id}
-                      checked={selectedShippingMethod === method.id}
-                      onChange={() => setSelectedShippingMethod(method.id)}
-                    />
-                    <div className="method-info">
-                      <span className="method-name">{method.name}</span>
-                      <span className="method-description">{method.description}</span>
-                    </div>
-                    <span className="method-fee">
-                      {method.fee === 0 ? 'Miễn phí' : `${Number(method.fee).toLocaleString('vi-VN')}đ`}
-                    </span>
-                  </label>
-                ))}
+                {Array.isArray(shippingMethods) &&
+                  shippingMethods.map((method) => (
+                    <label key={method.id} className="shipping-method">
+                      <input
+                        type="radio"
+                        name="shippingMethod"
+                        value={method.id}
+                        checked={selectedShippingMethod === method.id}
+                        onChange={() => setSelectedShippingMethod(method.id)}
+                      />
+                      <div className="method-info">
+                        <span className="method-name">{method.name}</span>
+                        <span className="method-description">
+                          {method.description}
+                        </span>
+                      </div>
+                      <span className="method-fee">
+                        {method.fee === 0
+                          ? "Miễn phí"
+                          : `${Number(method.fee).toLocaleString("vi-VN")}đ`}
+                      </span>
+                    </label>
+                  ))}
               </div>
             </div>
             <div className="order-summary">
               <h2>Tổng đơn hàng</h2>
-              
-              
+
               {/* Chi tiết sản phẩm */}
               <div className="order-items">
                 <h3>Sản phẩm đã chọn</h3>
                 <div className="order-items-list">
-                  {cartItems.map(item => (
+                  {cartItems.map((item) => (
                     <div key={item.id} className="order-item">
                       <div className="item-image">
                         <img src={getBookImageUrl(item)} alt={item.title} />
@@ -688,9 +910,13 @@ function CheckoutPage() {
                         <h4 className="item-title">{item.title}</h4>
                         <p className="item-author">Tác giả: {item.author}</p>
                         <div className="item-price">
-                          <span className="current-price">{formatCurrency(item.price)}</span>
+                          <span className="current-price">
+                            {formatCurrency(item.price)}
+                          </span>
                           {item.originalPrice > item.price && (
-                            <span className="original-price">{formatCurrency(item.originalPrice)}</span>
+                            <span className="original-price">
+                              {formatCurrency(item.originalPrice)}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -698,7 +924,9 @@ function CheckoutPage() {
                         <span>SL: {item.quantity}</span>
                       </div>
                       <div className="item-total">
-                        <span className="total-price">{formatCurrency(item.price * item.quantity)}</span>
+                        <span className="total-price">
+                          {formatCurrency(item.price * item.quantity)}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -713,24 +941,37 @@ function CheckoutPage() {
                 {appliedCoupon && (
                   <div className="detail-row">
                     <span>Khuyến mãi áp dụng:</span>
-                    <span style={{ color: '#48bb78', fontWeight: '500' }}>
-                      {(appliedCoupon.promotion_code || appliedCoupon.code || appliedCoupon.id)} - {
-                        (appliedCoupon.type === 'percent' || appliedCoupon.discountType === 'percent')
-                          ? `Giảm ${appliedCoupon.discount}%`
-                          : `Giảm ${Number(appliedCoupon.discount).toLocaleString('vi-VN')}đ`
-                      }
+                    <span style={{ color: "#48bb78", fontWeight: "500" }}>
+                      {appliedCoupon.promotion_code ||
+                        appliedCoupon.code ||
+                        appliedCoupon.id}{" "}
+                      -{" "}
+                      {appliedCoupon.type === "percent" ||
+                      appliedCoupon.discountType === "percent"
+                        ? `Giảm ${appliedCoupon.discount}%`
+                        : `Giảm ${Number(appliedCoupon.discount).toLocaleString(
+                            "vi-VN"
+                          )}đ`}
                     </span>
                   </div>
                 )}
                 {discount > 0 && (
                   <div className="detail-row">
                     <span>Giảm giá:</span>
-                    <span style={{ color: '#48bb78' }}>-{formatCurrency(discount)}</span>
+                    <span style={{ color: "#48bb78" }}>
+                      -{formatCurrency(discount)}
+                    </span>
                   </div>
                 )}
                 <div className="detail-row">
-                  <span>Phí vận chuyển ({selectedMethod?.name || 'Chưa chọn'}):</span>
-                  <span>{shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee)}</span>
+                  <span>
+                    Phí vận chuyển ({selectedMethod?.name || "Chưa chọn"}):
+                  </span>
+                  <span>
+                    {shippingFee === 0
+                      ? "Miễn phí"
+                      : formatCurrency(shippingFee)}
+                  </span>
                 </div>
                 <div className="detail-row total">
                   <span>Tổng cộng:</span>
@@ -738,21 +979,21 @@ function CheckoutPage() {
                 </div>
               </div>
               {/* Nút điều hướng */}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
                   className="btn-place-order"
                   onClick={handleBackToCart}
-                  style={{ flex: 1, background: '#718096' }}
+                  style={{ flex: 1, background: "#718096" }}
                 >
                   Quay lại giỏ hàng
                 </button>
-                <button 
+                <button
                   className="btn-place-order"
                   onClick={handlePlaceOrder}
                   disabled={isLoading || cartItems.length === 0}
                   style={{ flex: 1 }}
                 >
-                  {isLoading ? 'Đang xử lý...' : 'Đặt hàng ngay'}
+                  {isLoading ? "Đang xử lý..." : "Đặt hàng ngay"}
                 </button>
               </div>
             </div>
