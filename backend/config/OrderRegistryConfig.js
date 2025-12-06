@@ -12,6 +12,12 @@ const ORDER_REGISTRY_ABI = [
     anonymous: false,
     inputs: [
       {
+        indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
+      {
         indexed: false,
         internalType: "string",
         name: "orderId",
@@ -54,6 +60,12 @@ const ORDER_REGISTRY_ABI = [
   {
     anonymous: false,
     inputs: [
+      {
+        indexed: true,
+        internalType: "bytes32",
+        name: "orderKey",
+        type: "bytes32",
+      },
       {
         indexed: false,
         internalType: "string",
