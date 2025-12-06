@@ -8,6 +8,7 @@ const {
   Book,
 } = require("../models");
 const EscrowService = require("./EscrowService"); // <--- Import vào đây
+const OrderRegistryService = require("./OrderRegistryService");
 const { Op } = require("sequelize");
 
 const getOrdersByUserID = async (userID, page = 1, pageSize = 10) => {
@@ -179,7 +180,6 @@ const createOrder = async (orderData) => {
         { transaction: t }
       );
     }
-
     return order;
   });
 };

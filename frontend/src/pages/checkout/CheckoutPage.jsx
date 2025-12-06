@@ -394,13 +394,13 @@ function CheckoutPage() {
           // ---------------------------------------------------------
           // BƯỚC 1: Gọi Backend để lấy thông tin Contract & ABI chuẩn
           // ---------------------------------------------------------
-          // Giả sử bạn dùng axios, thay 'YOUR_API_URL' bằng đường dẫn backend thực tế
           const initResponse = await axiosInstance.post(
             "http://localhost:5000/api/orders/crypto/create",
             {
               amount: total,
               orderId: orderId, // Gửi ID đơn hàng lên để backend biết
               userId: user.id, // Nếu cần
+              buyerWalletAddress: accountAddress,
             }
           );
 
@@ -442,43 +442,47 @@ function CheckoutPage() {
             amountInWeiHex
           );
 
-          // // 3) Chuẩn bị thông tin contract (demo)
-          // const orderInfo = {
-          //   contractAddress: "0xbeC2557de11f181F1066DbDcc1A5c1350C3244C9", // TODO: thay bằng contract BookStoreEscrow thật
-          //   abi: [
-          //     {
-          //       inputs: [
-          //         { internalType: "bytes32", name: "orderId", type: "bytes32" },
-          //       ],
-          //       name: "createEscrow",
-          //       outputs: [],
-          //       stateMutability: "payable",
-          //       type: "function",
-          //     },
-          //   ],
-          // };
-
           // offchainId dùng duy nhất orderId để hash, trùng với backend (refundEscrowOnChain / hasActiveEscrow)
           const offchainId = String(orderId);
+          console.log("offchainId: ", offchainId);
           if (!offchainId) {
             throw new Error("Không lấy được mã đơn hàng để tạo escrow");
           }
-          const escrowOrderIdBytes32 = web3.utils.keccak256(offchainId);
 
-          // const contract = new web3.eth.Contract(
-          //   orderInfo.abi,
-          //   orderInfo.contractAddress
-          // );
           const contract = new web3.eth.Contract(abi, contractAddress);
-          const data = contract.methods
-            .createEscrow(escrowOrderIdBytes32)
-            .encodeABI();
+          const data = contract.methods.depositEscrow(offchainId).encodeABI();
+
+          let estimatedGas;
+          try {
+            estimatedGas = await contract.methods
+              .depositEscrow(offchainId)
+              .estimateGas({
+                from: accountAddress,
+                value: amountInWeiHex,
+              });
+          } catch (error) {
+            console.error("Gas estimation failed:", error);
+            // Nếu ước lượng thất bại, fallback về một số an toàn (ví dụ 500k)
+            estimatedGas = 500000;
+          }
+
+          // 2. Tính toán Buffer (Cộng thêm 20% cho an toàn)
+          // Công thức: Gas * 1.2
+          const gasLimitBigInt = (BigInt(estimatedGas) * 120n) / 100n;
+
+          // 3. Chuyển sang Hex
+          const gasLimitHex = "0x" + gasLimitBigInt.toString(16);
+
+          console.log(
+            `Gas Estimated: ${estimatedGas}, Gas Limit (with buffer): ${gasLimitBigInt}`
+          );
 
           const txParams = {
             from: accountAddress,
             to: contractAddress,
             data,
             value: amountInWeiHex,
+            gas: gasLimitHex, // <--- Điền giá trị đã tính vào đây
           };
 
           console.log("txParams (crypto):", txParams);
@@ -505,26 +509,6 @@ function CheckoutPage() {
 
           console.log("Tx hash:", txHash);
 
-          //   // 4) Không chờ receipt nữa để tránh lỗi 'Transaction not found'
-          //   await localClearCart();
-          //   const orderInfoState = {
-          //     id: orderId,
-          //     orderCode: orderCode,
-          //     total: total,
-          //     paymentMethod: paymentMethod,
-          //     txHash,
-          //   };
-          //   navigate("/order-success", { state: { orderInfo: orderInfoState } });
-          // } catch (error) {
-          //   console.error("Crypto payment error:", error);
-          //   alert(
-          //     error.message ||
-          //       "Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại!"
-          //   );
-          // } finally {
-          //   setIsLoading(false);
-          // }
-          // return;
           // ---------------------------------------------------------
           // BƯỚC 4: QUAN TRỌNG - Chờ giao dịch được xác nhận (Mined)
           // ---------------------------------------------------------
@@ -603,8 +587,7 @@ function CheckoutPage() {
             );
           }
         } catch (error) {
-          console.error("Crypto payment error:", error);
-          alert(error.message || "Có lỗi xảy ra khi xử lý thanh toán.");
+          console.error(error);
         } finally {
           setIsLoading(false);
         }

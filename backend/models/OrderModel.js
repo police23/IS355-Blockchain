@@ -70,6 +70,21 @@ const Order = sequelize.define(
       allowNull: false,
       defaultValue: "None",
     },
+    buyer_wallet_address: {
+      type: DataTypes.STRING(250),
+      allowNull: true,
+      defaultValue: null,
+    },
+    crypto_amount: {
+      type: DataTypes.STRING, // Lưu dạng string để bảo toàn độ chính xác
+      allowNull: true,
+      defaultValue: null,
+    },
+    receipt_cid: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
   },
   {
     tableName: "orders",

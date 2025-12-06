@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { verifyToken } = require("../middlewares/authMiddleware");
 const OrderController = require("../controllers/OrderController");
-
+const ReceiptController = require("../controllers/ReceiptController");
 router.get(
   "/processing",
   verifyToken,
@@ -54,4 +54,5 @@ router.post("/crypto/create", OrderController.createCryptoOrder);
 router.post("/crypto/submit-result", OrderController.submitCryptoResult);
 router.get("/:orderId/events", OrderController.getEventsByOrderId);
 router.get("/events", OrderController.getAllOrderEvents);
+router.get("/:orderId/receipt", ReceiptController.viewReceipt);
 module.exports = router;
