@@ -128,7 +128,6 @@ const MyOrderDetailsModal = ({ order, open, onClose, onCancelOrder }) => {
               <span>Thành tiền:</span>
               <div className="value">
                 <span className="vnd-amount">{formatCurrency(toNumber(order.finalAmount))}</span>
-                <span className="eth-amount">{order.cryptoAmount ? `(${formatEthAmount(order.cryptoAmount)} ETH)` : (ethPriceVnd ? `(${formatEth(order.finalAmount)} ETH)` : '(... ETH)')}</span>
               </div>
             </div>
           </div>
