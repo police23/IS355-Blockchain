@@ -22,7 +22,7 @@ const MyOrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
-  const [receiptOrderId, setReceiptOrderId] = useState(null);
+  const [receiptOrder, setReceiptOrder] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -153,14 +153,14 @@ const MyOrdersPage = () => {
     setShowOrderDetails(true);
   };
 
-  const handleOpenReceipt = (orderId) => {
-    setReceiptOrderId(orderId);
+  const handleOpenReceipt = (order) => {
+    setReceiptOrder(order);
     setShowReceiptModal(true);
   };
 
   const handleCloseReceipt = () => {
     setShowReceiptModal(false);
-    setReceiptOrderId(null);
+    setReceiptOrder(null);
   };
 
   const closeOrderDetails = () => {
@@ -382,7 +382,7 @@ const MyOrdersPage = () => {
                           </button>
                           <button
                             className="export-receipt-btn"
-                            onClick={() => handleOpenReceipt(order.id)}
+                            onClick={() => handleOpenReceipt(order)}
                             style={{ marginLeft: 8 }}
                           >
                             Xuất biên lai
@@ -447,11 +447,13 @@ const MyOrdersPage = () => {
           onClose={closeOrderDetails}
           onCancelOrder={handleCancelOrder}
         />
-        <MyOrderReceiptModal
-          orderId={receiptOrderId}
-          open={showReceiptModal}
-          onClose={handleCloseReceipt}
-        />
+        {receiptOrder && showReceiptModal && (
+          <MyOrderReceiptModal
+            orderId={receiptOrder.id}
+            open={showReceiptModal}
+            onClose={handleCloseReceipt}
+          />
+        )}
       </div>
     </>
   );

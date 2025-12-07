@@ -1,26 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./MyOrderReceiptModal.css";
+import axios from "axios";
+import { getReceiptPDFByOrderID } from "../../services/OrderService";
 
-// Props:
-// - open: boolean to show/hide modal
-// - onClose: function to close modal
-// - cid: optional string; if not provided, default CID used
-// - gatewayBaseUrl: optional string to override gateway
-// - decryptFn: async function(ArrayBuffer) => ArrayBuffer|Uint8Array|Blob (optional)
-//   If provided, the fetched content will be passed to this for decryption
-//   before being rendered. Should return the decrypted PDF bytes.
-// - id: optional short identifier (falls back to CID)
-// - orderId: optional human-friendly order code (e.g. mã đơn) — preferred for title
-export default function MyOrderReceiptModal({ open, onClose, cid, gatewayBaseUrl, decryptFn, id, orderId }) {
-	const DEFAULT_CID =
-		"bafybeih27iuct337oz4xlazqbhrp3r4gx3qyslkdeiqktow45o4lolkjle";
-	const baseUrl =
-		gatewayBaseUrl ||
-		"https://teal-urban-bonobo-388.mypinata.cloud/ipfs";
-
-	const activeCid = cid || DEFAULT_CID;
-	const gatewayFetchUrl = useMemo(() => `${baseUrl}/${activeCid}`, [baseUrl, activeCid]);
-
+export default function MyOrderReceiptModal({ orderId, open, onClose }) {
+	// Use backend endpoint to fetch decrypted PDF
 	const [isLoaded, setIsLoaded] = useState(false);
 	const [isFetching, setIsFetching] = useState(false);
 	const [error, setError] = useState("");
@@ -58,22 +42,10 @@ export default function MyOrderReceiptModal({ open, onClose, cid, gatewayBaseUrl
 				setError("");
 				setIsLoaded(false);
 
-				const resp = await fetch(gatewayFetchUrl, {
-					method: "GET",
-					// If your gateway requires auth, add headers here
-				});
-				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+				// Fetch PDF blob from backend
+				const pdfBlob = await getReceiptPDFByOrderID(orderId);
 
-				const encryptedBuffer = await resp.arrayBuffer();
-				const processedBytes = decryptFn
-					? await decryptFn(encryptedBuffer)
-					: encryptedBuffer;
-
-				// Convert to Blob for PDF viewing
-				const pdfBlob = processedBytes instanceof Blob
-					? processedBytes
-					: new Blob([processedBytes], { type: "application/pdf" });
-
+				// Create object URL from blob
 				const url = URL.createObjectURL(pdfBlob);
 				if (cancelled) return;
 
@@ -83,6 +55,7 @@ export default function MyOrderReceiptModal({ open, onClose, cid, gatewayBaseUrl
 				setObjectUrl(url);
 				setIsLoaded(true);
 			} catch (e) {
+				console.error(e)
 				if (!cancelled) {
 					setError(e?.message || "Failed to load PDF");
 					setIsLoaded(false);
@@ -96,7 +69,7 @@ export default function MyOrderReceiptModal({ open, onClose, cid, gatewayBaseUrl
 		return () => {
 			cancelled = true;
 		};
-	}, [open, gatewayFetchUrl, decryptFn]);
+	}, [open, orderId]);
 
 	if (!open) return null;
 
@@ -129,7 +102,7 @@ export default function MyOrderReceiptModal({ open, onClose, cid, gatewayBaseUrl
 				</div>
 
 				<div className="receipt-modal__footer">
-					<a href={objectUrl || gatewayFetchUrl} target="_blank" rel="noreferrer" className="receipt-modal__link">
+					<a href={objectUrl} target="_blank" rel="noreferrer" className="receipt-modal__link">
 						Open in new tab
 					</a>
 				</div>

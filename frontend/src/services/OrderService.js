@@ -144,4 +144,12 @@ export const getDeliveredOrdersByShipperID = async () => {
   return response.data;
 };
 
+export const getReceiptPDFByOrderID = async (orderID) => {
+  const response = await axios.get(`${ORDER_API_URL}/${orderID}/receipt`, { 
+    headers: getAuthHeader(),
+    responseType: 'blob'  // Expect blob/PDF response
+  })
+  return response.data
+}
+
 
