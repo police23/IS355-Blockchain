@@ -152,4 +152,15 @@ export const getReceiptPDFByOrderID = async (orderID) => {
   return response.data
 }
 
+export const getContractEvents = async (page = 1, pageSize = 10, type) => {
+  const typeParam = type ? `&type=${encodeURIComponent(type)}` : "";
+  const response = await axios.get(`${API_BASE_URL}/contract-events?page=${page}&pageSize=${pageSize}${typeParam}`, { headers: getAuthHeader() });
+  return response.data;
+};
+
+export const getOrderEvents = async (orderId) => {
+  const response = await axios.get(`${ORDER_API_URL}/${orderId}/events`, { headers: getAuthHeader() });
+  return response.data;
+};
+
 

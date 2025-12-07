@@ -35,6 +35,7 @@ const shippingMethodRoutes = require("./routes/ShippingMethodRoutes");
 const ratingRoutes = require("./routes/RatingRoutes");
 const reportRoutes = require("./routes/ReportRoutes");
 const paymentRoutes = require("./routes/PaymentRoutes");
+const contractEventRoutes = require("./routes/ContractEventRoutes");
 const { startListener } = require("./workers/ContractListener");
 const QueueService = require("./services/QueueService");
 const app = express();
@@ -84,6 +85,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/shipping-methods", shippingMethodRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/contract-events", contractEventRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

@@ -237,15 +237,23 @@
   font-size: 1.5rem;
   color: #2c3e50;
 }
-.order-summary-row span {
-  flex: 1;
+.order-summary-row > span {
+  flex: 0 0 160px; /* fixed label column to avoid wrapping */
   text-align: left;
+  font-weight: 500;
+  white-space: nowrap; /* keep label on one line */
+  padding-right: 12px;
 }
-.order-summary-row strong {
-  flex: 0 0 120px;
+
+.order-summary-row .value {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column; /* stack VND above ETH */
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
   text-align: right;
-  font-weight: 600;
-  display: inline-block;
+  min-width: 0; /* allow shrinking on small screens */
 }
 .order-summary-final {
   font-size: 1.7rem;
@@ -254,6 +262,30 @@
   border-top: 2px solid #e9ecef;
   margin-top: 10px;
   padding-top: 10px;
+}
+
+.order-summary-final .vnd-amount {
+  color: #2196f3;
+  font-weight: 700;
+}
+
+.order-summary-final .eth-amount {
+  color: #333;
+  font-weight: 700;
+}
+
+/* ETH / VND helper styles for summary box */
+.order-summary-box .eth-amount {
+  display: block;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #666;
+}
+
+.order-summary-box .vnd-amount {
+  font-size: inherit;
+  font-weight: 400;
+  color: #2c3e50;
 }
 @media (max-width: 900px) {
   .order-details-grid {
@@ -268,5 +300,16 @@
     padding: 16px 10px 14px 10px;
     margin-left: 0;
     margin-right: 0;
+  }
+  /* On smaller screens allow labels to wrap and become full-width */
+  .order-summary-row > span {
+    flex: 1 1 100%;
+    white-space: normal;
+    padding-right: 0;
+    margin-bottom: 6px;
+  }
+  .order-summary-row .value {
+    flex: 1 1 100%;
+    justify-content: flex-start;
   }
 }

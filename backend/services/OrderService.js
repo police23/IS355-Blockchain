@@ -10,6 +10,7 @@ const {
 const EscrowService = require("./EscrowService"); // <--- Import vào đây
 const OrderRegistryService = require("./OrderRegistryService");
 const { Op } = require("sequelize");
+const { ethers } = require('ethers');
 
 const getOrdersByUserID = async (userID, page = 1, pageSize = 10) => {
   const offset = (page - 1) * pageSize;
@@ -56,7 +57,64 @@ const getAllOrdersByStatus = async (status, page = 1, pageSize = 10) => {
     limit: pageSize,
     offset,
   });
-  return { orders: rows, total: count };
+
+    // For each order, try to fetch latest contract event (if any) and attach payload.amount
+    // This allows frontend to use the on-chain/payment amount when available.
+    const enhancedRows = await Promise.all(
+      rows.map(async (order) => {
+        try {
+          // 1) Try to get amount from contract_events (on-chain payload)
+          let assignedAmount = null;
+          const events = await EscrowService.getEventsByOrderId(order.id);
+          if (Array.isArray(events) && events.length > 0) {
+            // events ordered by created_at DESC in EscrowService
+            const latest = events[0];
+            let payload = latest.payload;
+            if (typeof payload === 'string') {
+              try { payload = JSON.parse(payload); } catch (e) { payload = null; }
+            }
+            if (payload && payload.amount) {
+              assignedAmount = String(payload.amount);
+            }
+          }
+
+          // 2) If not found, fallback to order.crypto_amount column (may be hex wei or decimal)
+          if (!assignedAmount && order.crypto_amount) {
+            const ca = order.crypto_amount;
+            try {
+              if (typeof ca === 'string' && ca.startsWith('0x')) {
+                // hex wei -> convert to ETH
+                assignedAmount = ethers.formatEther(ca);
+              } else if (typeof ca === 'string' && /^\d+$/.test(ca)) {
+                // numeric string (likely wei) - convert using BigInt
+                // heuristic: if length > 15 treat as wei
+                if (ca.length > 15) {
+                  assignedAmount = ethers.formatEther(BigInt(ca).toString());
+                } else {
+                  // small integer -> maybe already ETH in smallest units, treat as decimal
+                  assignedAmount = String(ca);
+                }
+              } else if (typeof ca === 'number') {
+                assignedAmount = String(ca);
+              }
+            } catch (e) {
+              // ignore conversion errors
+              console.error('[OrderService] Error converting crypto_amount for order', order.id, e.message || e);
+            }
+          }
+
+          if (assignedAmount) {
+            order.dataValues.crypto_amount = assignedAmount;
+          }
+        } catch (err) {
+          // ignore individual errors to not fail the whole list
+          console.error('[OrderService] Error fetching contract events for order', order.id, err.message || err);
+        }
+        return order;
+      })
+    );
+
+    return { orders: enhancedRows, total: count };
 };
 
 const getOrdersByStatusAndUser = async (

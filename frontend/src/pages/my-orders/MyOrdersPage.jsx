@@ -8,6 +8,7 @@ import {
   getCancelledOrdersByUserID,
   cancelOrder,
   getDeliveringOrdersByUserID,
+  getOrderEvents,
 } from "../../services/OrderService";
 import "./MyOrdersPage.css";
 import PublicHeader from "../../components/common/PublicHeader";
@@ -27,6 +28,7 @@ const MyOrdersPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
+  const [ethPriceVnd, setEthPriceVnd] = useState(null);
 
   // Fetch user orders from API
   useEffect(() => {
@@ -89,7 +91,44 @@ const MyOrdersPage = () => {
               : "Thanh toán khi nhận hàng",
         }));
 
-        setOrders(mappedOrders);
+        // Enrich each order with on-chain amount from contract events (payload.amount)
+        try {
+          const enriched = await Promise.all(
+            ordersData.map(async (o, idx) => {
+              try {
+                const evRes = await getOrderEvents(o.id);
+                const events = evRes?.data || evRes || [];
+                let amount = null;
+                if (Array.isArray(events) && events.length) {
+                  for (const ev of events) {
+                    let p = ev.payload;
+                    if (typeof p === "string") {
+                      try {
+                        p = JSON.parse(p);
+                      } catch (e) {
+                        // ignore
+                      }
+                    }
+                    if (p && (p.amount !== undefined && p.amount !== null)) {
+                      amount = p.amount;
+                      break;
+                    }
+                  }
+                }
+                const base = mappedOrders[idx];
+                return {
+                  ...base,
+                  cryptoAmount: amount,
+                };
+              } catch (e) {
+                return mappedOrders[idx];
+              }
+            })
+          );
+          setOrders(enriched);
+        } catch (err) {
+          setOrders(mappedOrders);
+        }
         setTotal(apiData.total || 0);
         setLoading(false);
       } catch (error) {
@@ -101,6 +140,33 @@ const MyOrdersPage = () => {
     };
     fetchOrders();
   }, [filter, page, pageSize]);
+
+  // Lấy tỷ giá ETH/VND (dùng để hiển thị quy đổi trong cột Tổng tiền)
+  useEffect(() => {
+    let mounted = true;
+    const fetchEthPrice = async () => {
+      try {
+        const res = await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=vnd"
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const price = Number(data?.ethereum?.vnd);
+        if (mounted && price && Number.isFinite(price)) {
+          setEthPriceVnd(price);
+        }
+      } catch (err) {
+        console.error("Error fetching ETH/VND price:", err);
+      }
+    };
+    fetchEthPrice();
+    // Refresh mỗi 60s để giữ giá tương đối cập nhật
+    const interval = setInterval(fetchEthPrice, 60 * 1000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const getStatusText = (status) => {
     switch (status) {
@@ -141,6 +207,22 @@ const MyOrdersPage = () => {
       style: "currency",
       currency: "VND",
     }).format(amount);
+  };
+
+  const formatEth = (vndAmount) => {
+    const price = Number(ethPriceVnd);
+    const vnd = Number(vndAmount) || 0;
+    if (!price || !Number.isFinite(price) || price <= 0 || vnd <= 0) return "...";
+    const eth = vnd / price;
+    // Hiển thị tối đa 6 chữ số thập phân, loại bỏ số 0 thừa
+    return parseFloat(eth.toFixed(6)).toString();
+  };
+
+  const formatEthAmount = (amount) => {
+    if (amount === null || amount === undefined || amount === "") return "...";
+    const n = parseFloat(String(amount));
+    if (!Number.isFinite(n)) return "...";
+    return n.toFixed(6);
   };
 
   const formatDate = (dateString) => {
@@ -207,6 +289,7 @@ const MyOrdersPage = () => {
               discountAmount: order.discount_amount,
               shippingFee: order.shipping_fee,
               finalAmount: order.final_amount,
+            cryptoAmount: null,
               items: (order.details || order.orderDetails || []).map(
                 (item) => ({
                   id: item.id,
@@ -361,7 +444,14 @@ const MyOrdersPage = () => {
                             : 0}
                         </td>
                         <td>
-                          <strong>{formatCurrency(order.totalAmount)}</strong>
+                          <span className="vnd-amount">{formatCurrency(order.finalAmount)}</span>
+                          <div className="eth-amount">
+                            {order.cryptoAmount
+                              ? `(${formatEthAmount(order.cryptoAmount)} ETH)`
+                              : ethPriceVnd && order.finalAmount
+                              ? `(${formatEth(order.finalAmount)} ETH)`
+                              : "(... ETH)"}
+                          </div>
                         </td>
                         <td>
                           <span

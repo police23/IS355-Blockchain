@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './MyOrderDetailsModal.css';
 
 const getStatusText = (status) => {
@@ -25,6 +25,9 @@ const formatDate = (dateString) => {
 };
 const toNumber = (val) => Number(val) || 0;
 
+const MyOrderDetailsModalHelper = () => null; // placeholder to keep lint tools happy if needed
+
+
 const getStatusColor = (status) => {
   switch (status) {
     case 'pending': return '#ff9800'; // Màu cam - chờ xử lý
@@ -40,6 +43,14 @@ const getStatusColor = (status) => {
 };
 
 const MyOrderDetailsModal = ({ order, open, onClose, onCancelOrder }) => {
+
+  const formatEthAmount = (amount) => {
+    if (amount === null || amount === undefined || amount === '') return '...';
+    const n = parseFloat(String(amount));
+    if (!Number.isFinite(n)) return '...';
+    return n.toFixed(6);
+  };
+
   if (!open || !order) return null;
   console.log('Order detail:', order); // debug
 
@@ -92,10 +103,34 @@ const MyOrderDetailsModal = ({ order, open, onClose, onCancelOrder }) => {
             </table>
           </div>
           <div className="order-summary-box">
-            <div className="order-summary-row"><span>Tổng tiền hàng:</span> <strong>{formatCurrency(toNumber(order.totalAmount))}</strong></div>
-            <div className="order-summary-row"><span>Phí vận chuyển:</span> <strong>{formatCurrency(toNumber(order.shippingFee))}</strong></div>
-            <div className="order-summary-row"><span>Khuyến mãi:</span> <strong style={{ color: '#2196f3' }}>-{formatCurrency(toNumber(order.discountAmount))}</strong></div>
-            <div className="order-summary-row order-summary-final"><span>Thành tiền:</span> <strong>{formatCurrency(toNumber(order.finalAmount))}</strong></div>
+            <div className="order-summary-row">
+              <span>Tổng tiền hàng:</span>
+              <div className="value">
+                <span className="vnd-amount">{formatCurrency(toNumber(order.totalAmount))}</span>
+              </div>
+            </div>
+
+            <div className="order-summary-row">
+              <span>Phí vận chuyển:</span>
+              <div className="value">
+                <span className="vnd-amount">{formatCurrency(toNumber(order.shippingFee))}</span>
+              </div>
+            </div>
+
+            <div className="order-summary-row">
+              <span>Khuyến mãi:</span>
+              <div className="value">
+                <span className="vnd-amount" style={{ color: '#2196f3' }}>-{formatCurrency(toNumber(order.discountAmount))}</span>
+              </div>
+            </div>
+
+            <div className="order-summary-row order-summary-final">
+              <span>Thành tiền:</span>
+              <div className="value">
+                <span className="vnd-amount">{formatCurrency(toNumber(order.finalAmount))}</span>
+                <span className="eth-amount">{order.cryptoAmount ? `(${formatEthAmount(order.cryptoAmount)} ETH)` : (ethPriceVnd ? `(${formatEth(order.finalAmount)} ETH)` : '(... ETH)')}</span>
+              </div>
+            </div>
           </div>
           {(order.status === 'pending' || order.status === 'processing') && (
             <div className="modal-actions" style={{ marginTop: 20, justifyContent: 'flex-end' }}>

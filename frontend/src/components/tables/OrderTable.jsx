@@ -8,6 +8,7 @@ import {
   getAllCancelledOrders,
   confirmOrder,
   assignOrderToShipper,
+  cancelOrder,
 } from "../../services/OrderService";
 import MyOrderDetailsModal from "../modals/MyOrderDetailsModal";
 import CryptoOrderDetailsModal from "../modals/CryptoOrderDetailsModal";
@@ -34,8 +35,10 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [expandedRowId, setExpandedRowId] = useState(null);
+  const [ethPriceVnd, setEthPriceVnd] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [shippers, setShippers] = useState([]);
   const [assignOrderId, setAssignOrderId] = useState(null);
   const [showCryptoModal, setShowCryptoModal] = useState(false);
@@ -54,6 +57,21 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
   useEffect(() => {
     fetchOrders();
   }, [type, isShipper, currentPage, pageSize]);
+
+  const formatEth = (vndAmount) => {
+    const price = Number(ethPriceVnd);
+    const vnd = Number(vndAmount) || 0;
+    if (!price || !Number.isFinite(price) || price <= 0 || vnd <= 0) return '...';
+    const eth = vnd / price;
+    return parseFloat(eth.toFixed(6)).toString();
+  };
+
+  const formatEthAmount = (amount) => {
+    if (amount === null || amount === undefined || amount === '') return '...';
+    const n = parseFloat(String(amount));
+    if (!Number.isFinite(n)) return '...';
+    return n.toFixed(6);
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -103,6 +121,10 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
     setShowConfirmModal(true);
   };
 
+  const handleCancel = () => {
+    setShowCancelModal(true);
+  };
+
   const handleConfirmModal = async () => {
     try {
       // Gọi API xác nhận
@@ -126,6 +148,27 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
       console.error("Lỗi xác nhận đơn hàng:", error);
     } finally {
       setShowConfirmModal(false);
+    }
+  };
+
+  const handleCancelModal = async () => {
+    try {
+      const pendingOrderIds = selectedRows.filter((id) =>
+        orders.find((o) => o.id === id && o.status === "pending")
+      );
+      if (!pendingOrderIds.length) {
+        setNotification({ message: "Không có đơn hàng hợp lệ để hủy.", type: "error" });
+        return;
+      }
+      await Promise.all(pendingOrderIds.map((id) => cancelOrder(id)));
+      setNotification({ message: "Hủy đơn hàng thành công", type: "success" });
+      fetchOrders();
+      setSelectedRows([]);
+    } catch (error) {
+      setNotification({ message: `Hủy đơn hàng thất bại: ${error?.message || error}`, type: "error" });
+      console.error("Lỗi hủy đơn hàng:", error);
+    } finally {
+      setShowCancelModal(false);
     }
   };
 
@@ -187,13 +230,23 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
         {/* Action buttons on top */}
         <div className="action-buttons">
           {type === "processing" && (
-            <button
-              className="btn btn-confirm"
-              onClick={handleConfirm}
-              disabled={!canConfirm}
-            >
-              Xác nhận
-            </button>
+            <>
+              <button
+                className="btn btn-confirm"
+                onClick={handleConfirm}
+                disabled={!canConfirm}
+              >
+                Xác nhận
+              </button>
+              <button
+                className="btn btn-cancel"
+                onClick={handleCancel}
+                disabled={!canConfirm}
+                style={{ marginLeft: 12 }}
+              >
+                Hủy đơn hàng
+              </button>
+            </>
           )}
           {type === "confirmed" && (
             <button
@@ -239,7 +292,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                 />
               </th>
               <th>Mã đơn</th>
-              <th>Khách hàng</th>
+              {/* Khách hàng column removed to allow more space for amount + ETH */}
               <th>Số ĐT</th>
               <th>SL sách</th>
               <th>Ngày đặt</th>
@@ -251,7 +304,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
           <tbody>
             {currentRecords.length === 0 ? (
               <tr>
-                <td colSpan={type === "delivering" ? 9 : 8} className="order-table-empty">
+                <td colSpan={type === "delivering" ? 8 : 7} className="order-table-empty">
                   Không có dữ liệu
                 </td>
               </tr>
@@ -287,7 +340,6 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                       />
                     </td>
                     <td>#{order.id || ""}</td>
-                    <td>{order.user?.full_name || order.full_name || ""}</td>
                     <td>{order.user?.phone || order.phone || ""}</td>
                     <td>
                       {Array.isArray(order.details)
@@ -321,17 +373,30 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                       </td>
                     )}
                     <td>
-                      <strong>
-                        {formatCurrency(
-                          Number(order.final_amount || order.total_amount) || 0
-                        )}
-                      </strong>
+                      <div className="amount-value">
+                        <span className="vnd-amount">
+                          {formatCurrency(
+                            Number(order.final_amount || order.total_amount) || 0
+                          )}
+                        </span>
+                        <span className="eth-amount">
+                          <strong>
+                            {order.crypto_amount
+                              ? `(${formatEthAmount(order.crypto_amount)} ETH)`
+                              : ethPriceVnd
+                              ? `(${formatEth(
+                                  Number(order.final_amount || order.total_amount) || 0
+                                )} ETH)`
+                              : "(... ETH)"}
+                          </strong>
+                        </span>
+                      </div>
                     </td>
                   </tr>,
                   expandedRowId === order.id && (
                     <tr key={order.id + "-details"}>
                       <td
-                        colSpan={type === "delivering" ? 9 : 8}
+                        colSpan={type === "delivering" ? 8 : 7}
                         className="order-details-cell"
                       >
                         <div className="order-details-inline">
@@ -484,6 +549,19 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                                       Number(order.final_amount) || 0
                                     )}
                                   </span>
+                                  <div style={{ marginTop: 6 }}>
+                                    <small style={{ color: '#666' }}>
+                                      <strong>
+                                        ({order.crypto_amount
+                                          ? `${formatEthAmount(order.crypto_amount)} ETH`
+                                          : ethPriceVnd
+                                          ? `${formatEth(
+                                              Number(order.final_amount || order.total_amount) || 0
+                                            )} ETH`
+                                          : '... ETH'})
+                                      </strong>
+                                    </small>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -552,6 +630,18 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
         onConfirm={handleConfirmModal}
         title="Xác nhận đơn hàng"
         message={`Bạn có chắc chắn muốn xác nhận ${
+          orders.filter(
+            (o) => selectedRows.includes(o.id) && o.status === "pending"
+          ).length
+        } đơn hàng đã chọn?`}
+      />
+      {/* Confirmation Modal for cancelling orders */}
+      <ConfirmationModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleCancelModal}
+        title="Hủy đơn hàng"
+        message={`Bạn có chắc chắn muốn hủy ${
           orders.filter(
             (o) => selectedRows.includes(o.id) && o.status === "pending"
           ).length

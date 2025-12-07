@@ -7,6 +7,7 @@ import {
   getAllDeliveringOrders,
   confirmOrder,
   assignOrderToShipper,
+    getContractEvents,
 } from "../../services/OrderService";
 import ConfirmationModal from "../modals/ConfirmationModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -36,7 +37,7 @@ const cryptoActiveTabs = [
     },
     {
         key: "cancelled",
-        label: "Hủy",
+        label: "Cancel",
         icon: <FontAwesomeIcon icon={faBan} />,
     },
 ]
@@ -74,40 +75,76 @@ export const CryptoEventsTable = ({ type = "deposited", isShipper = false }) => 
     const fetchTransactions = async () => {
         setLoading(true);
         try {
-            // let response = { data: { transactions: [], total: 0 } };
-            let response = mockBlockchainData
-            
-            // Filter transactions based on the `type`
-            let filteredItems = [];
-            if (activeTab === "all") filteredItems = response.items;
-                // response = await getAllCryptoTransactions(currentPage, pageSize);
-            else if (activeTab === "deposited") 
-                filteredItems = response.items.filter(tx => tx.action === "deposit");
-                // response = await getDepositedCryptoTransactions(currentPage, pageSize);
-            else if (activeTab === "released") 
-                filteredItems = response.items.filter(tx => tx.action === "release");
-                // response = await getReleasedCryptoTransactions(currentPage, pageSize);
-            else if (activeTab === "cancelled") 
-                filteredItems = response.items.filter(tx => tx.action === "cancel");
-                // response = await getCancelledCryptoTransactions(currentPage, pageSize);
-            else if (activeTab === "created") 
-                filteredItems = response.items.filter(tx => tx.action === "create");
-                // response = await getCreatedCryptoTransactions(currentPage, pageSize);
+            // Map UI tab keys to contract event names in DB
+            const tabEventMap = {
+                created: 'EscrowCreated',
+                deposited: 'PaymentRecorded',
+                released: 'EscrowReleased',
+                cancelled: 'EscrowRefunded'
+            };
 
-            console.log('Filtered transactions:', filteredItems);
+            const eventType = activeTab === 'all' ? undefined : tabEventMap[activeTab] || activeTab;
 
-            // Check if the filtered data is valid
-            if (!Array.isArray(filteredItems)) {
-                console.error('Crypto transaction data is not an array:', filteredItems);
-                setTransactions([]);
-                setTotal(0);
-                setLoading(false);
-                return;
-            }
+            const res = await getContractEvents(currentPage, pageSize, eventType);
 
-            // Update state with filtered data
-            setTransactions(filteredItems);
-            setTotal(filteredItems.length);
+            const items = Array.isArray(res.items) ? res.items : [];
+
+            // Normalize items for frontend usage
+            const normalized = items.map(it => {
+                let payload = {};
+                try { payload = typeof it.payload === 'string' ? JSON.parse(it.payload) : it.payload || {}; } catch (e) { payload = {}; }
+
+                // map event names to the CSS badge keys used in CryptoEventsTable.css
+                const eventToKey = {
+                    EscrowCreated: 'create',
+                    PaymentRecorded: 'deposit',
+                    EscrowFunded: 'deposit',
+                    EscrowReleased: 'release',
+                    EscrowRefunded: 'cancel',
+                    PaymentReleased: 'release',
+                };
+
+                const displayMap = {
+                    create: 'Create',
+                    deposit: 'Deposit',
+                    release: 'Release',
+                    cancel: 'Cancel',
+                };
+
+                const rawAction = it.event_name || '';
+                const actionKey = eventToKey[rawAction] || 'default';
+                const actionLabel = displayMap[actionKey] || rawAction;
+
+                return {
+                    id: it.id || it.transaction_hash || '',
+                    transactionHash: it.transaction_hash,
+                    action: rawAction,
+                    actionKey,
+                    actionLabel,
+                    orderId: it.order_id,
+                    customerAddress: payload.payer || payload.sender || payload.buyer || it.order_buyer_wallet || '',
+                    ethAmount: payload.amount || null,
+                    vndAmount: it.order_final_amount || 0,
+                    timestamp: it.created_at || it.timestamp,
+                    // Pre-format time/date so rendering is simple and consistent
+                    formattedTime: (() => {
+                        try {
+                            const d = new Date(it.created_at || it.timestamp);
+                            return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                        } catch (e) { return '' }
+                    })(),
+                    formattedDate: (() => {
+                        try {
+                            const d = new Date(it.created_at || it.timestamp);
+                            return d.toLocaleDateString('vi-VN');
+                        } catch (e) { return '' }
+                    })(),
+                    raw: it,
+                };
+            });
+
+            setTransactions(normalized);
+            setTotal(res.total || normalized.length);
         } catch (error) {
             setNotification({ message: "Lỗi khi tải crypto transactions", type: "error" });
             console.log(error)
@@ -151,6 +188,21 @@ export const CryptoEventsTable = ({ type = "deposited", isShipper = false }) => 
         return amount?.toLocaleString("vi-VN", { style: "currency", currency: "VND" }) || "0₫";
     };
 
+    const formatVndNoSymbol = (amount) => {
+        if (amount === null || amount === undefined || amount === "") return "0";
+        const n = Number(amount);
+        if (!Number.isFinite(n)) return "-";
+        return n.toLocaleString('vi-VN', { maximumFractionDigits: 0 });
+    };
+
+    const formatEthAmount = (amount) => {
+        if (amount === null || amount === undefined || amount === "") return "-";
+        // amount may be string or number; try parseFloat
+        const n = parseFloat(String(amount));
+        if (!Number.isFinite(n)) return "-";
+        return n.toFixed(6);
+    };
+
 
     const totalPages = Math.ceil(total / pageSize);
 
@@ -185,24 +237,9 @@ export const CryptoEventsTable = ({ type = "deposited", isShipper = false }) => 
             <table className="crypto-table">
                 <thead>
                     <tr>
-                        <th>
-                            <input
-                                type="checkbox"
-                                checked={currentRecords.length > 0 && currentRecords.every(order => selectedRows.includes(order.id))}
-                                onChange={e => {
-                                    if (e.target.checked) {
-                                    // Add all current page orders to selectedRows
-                                    setSelectedRows(prev => ([...new Set([...prev, ...currentRecords.map(o => o.id)])]));
-                                    } else {
-                                    // Remove all current page orders from selectedRows
-                                    setSelectedRows(prev => prev.filter(id => !currentRecords.some(o => o.id === id)));
-                                    }
-                                }}
-                                aria-label="Chọn tất cả"
-                            />
-                        </th>
+                
                         <th>Mã đơn</th>
-                        <th>Địa chỉ khách</th>
+                        <th>Địa chỉ gửi transaction</th>
                         <th>Lượng (ETH)</th>
                         <th>Lượng (VNĐ)</th>
                         <th>Thời gian</th>
@@ -220,30 +257,18 @@ export const CryptoEventsTable = ({ type = "deposited", isShipper = false }) => 
                                 onClick={() => setExpandedRowId(expandedRowId === transaction.id ? null : transaction.id)}
                                 style={{ cursor: 'pointer' }}
                             >
-                                <td>
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedRows.includes(transaction.id)}
-                                        onChange={e => {
-                                            e.stopPropagation();
-                                            setSelectedRows(prev =>
-                                            e.target.checked
-                                                ? [...prev, transaction.id]
-                                                : prev.filter(id => id !== transaction.id)
-                                            );
-                                        }}
-                                        onClick={e => e.stopPropagation()}
-                                        aria-label={`Chọn transaction #${transaction.id}`}
-                                    />
-                                </td>
-                                <td>{transaction.id || ''}</td>
+                                
+                                <td>{transaction.orderId || ''}</td>
                                 <td>{transaction.customerAddress}</td>
-                                <td>{transaction.ethAmount}</td>
-                                <td>{formatCurrency(transaction.vndAmount)}</td>
-                                <td>{formatDate(transaction.timestamp)}</td>
+                                <td>{formatEthAmount(transaction.ethAmount)}</td>
+                                <td>{formatVndNoSymbol(transaction.vndAmount)}</td>
                                 <td>
-                                    <span className={"status-badge status-" + transaction.action.toString()}>
-                                        {transaction.action.charAt(0).toUpperCase() + transaction.action.slice(1)}
+                                    <div className="time-top">{transaction.formattedTime}</div>
+                                    <div className="date-bottom">{transaction.formattedDate}</div>
+                                </td>
+                                <td>
+                                    <span className={"status-badge status-" + (transaction.actionKey || 'default')}>
+                                        {transaction.actionLabel}
                                     </span>
                                 </td>
                             </tr>
@@ -306,106 +331,3 @@ export const CryptoEventsTable = ({ type = "deposited", isShipper = false }) => 
 };
 
 
-const mockBlockchainData = {
-    page: 1,
-    total: 3,
-    limit: 10,
-    items: [
-        {
-            id: "TX001",
-            customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            ethAmount: 0.5,
-            vndAmount: 20000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "deposit",
-        },
-        {
-            id: "TX002",
-            customerAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-            ethAmount: 1.2,
-            vndAmount: 48000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "release",
-        },
-        {
-            id: "TX003",
-            customerAddress: "0x7890abcdef1234567890abcdef1234567890abcd",
-            ethAmount: 0.8,
-            vndAmount: 32000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "cancel",
-        },
-        {
-            id: "TX004",
-            customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            ethAmount: 0.5,
-            vndAmount: 20000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "deposit",
-        },
-        {
-            id: "TX005",
-            customerAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-            ethAmount: 1.2,
-            vndAmount: 48000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "release",
-        },
-        {
-            id: "TX006",
-            customerAddress: "0x7890abcdef1234567890abcdef1234567890abcd",
-            ethAmount: 0.8,
-            vndAmount: 32000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "cancel",
-        },
-        {
-            id: "TX007",
-            customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            ethAmount: 0.5,
-            vndAmount: 20000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "deposit",
-        },
-        {
-            id: "TX008",
-            customerAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-            ethAmount: 1.2,
-            vndAmount: 48000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "release",
-        },
-        {
-            id: "TX009",
-            customerAddress: "0x7890abcdef1234567890abcdef1234567890abcd",
-            ethAmount: 0.8,
-            vndAmount: 32000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "cancel",
-        },
-        {
-            id: "TX010",
-            customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-            ethAmount: 0.5,
-            vndAmount: 20000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "create",
-        },
-        {
-            id: "TX011",
-            customerAddress: "0xabcdef1234567890abcdef1234567890abcdef12",
-            ethAmount: 1.2,
-            vndAmount: 48000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "create",
-        },
-        {
-            id: "TX012",
-            customerAddress: "0x7890abcdef1234567890abcdef1234567890abcd",
-            ethAmount: 0.8,
-            vndAmount: 32000000,
-            timestamp: "2025-11-16T10:30:00Z",
-            action: "create",
-        },
-    ]
-}
