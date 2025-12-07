@@ -85,7 +85,7 @@ const MyOrdersPage = () => {
             order.shippingMethod?.name || order.shipping_method_name,
           paymentMethod:
             order.payment_method === "crypto"
-              ? "crypto"
+              ? "Crypto"
               : order.payment_method === "online"
               ? "ZaloPay"
               : "Thanh toán khi nhận hàng",

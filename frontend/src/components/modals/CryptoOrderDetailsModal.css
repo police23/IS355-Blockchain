@@ -1,8 +1,6 @@
 
 .book-details-modal-content {
-  width: 700px;
   max-width: 95vw;
-  min-height: 650px;
   max-height: 90vh;
 }
 
@@ -143,6 +141,15 @@
   background-color: rgba(220, 53, 69, 0.1);
   color: #dc3545;
   border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 12px;
+  padding: 4px 8px;
+  display: inline-block;
+}
+
+.status-payment-recorded {
+  background-color: rgba(255, 193, 7, 0.15);
+  color: #f57f17;
+  border: 1px solid rgba(255, 193, 7, 0.3);
   border-radius: 12px;
   padding: 4px 8px;
   display: inline-block;

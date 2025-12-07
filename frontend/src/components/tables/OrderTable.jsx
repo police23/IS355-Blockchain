@@ -358,7 +358,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                     <td>
                       <strong>
                         {order.payment_method === "crypto"
-                          ? "crypto"
+                          ? "Crypto"
                           : order.payment_method === "online"
                           ? "ZaloPay"
                           : "Thanh toán khi nhận hàng"}
@@ -441,7 +441,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                               <div className="order-details-item">
                                 {order.payment_method === "crypto" && (
                                   <button
-                                    className="btn btn-crypto"
+                                  style={{fontSize: 15}}
                                     onClick={(e) => {
                                       // Prevent toggling the expanded row
                                       e.stopPropagation();
@@ -449,7 +449,7 @@ const OrderTable = ({ type = "processing", isShipper = false }) => {
                                       setShowCryptoModal(true);
                                     }}
                                   >
-                                    Crypto
+                                    Sự kiện crypto
                                   </button>
                                 )}
                               </div>

@@ -162,5 +162,3 @@ export const getOrderEvents = async (orderId) => {
   const response = await axios.get(`${ORDER_API_URL}/${orderId}/events`, { headers: getAuthHeader() });
   return response.data;
 };
-
-

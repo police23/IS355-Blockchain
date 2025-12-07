@@ -5,37 +5,24 @@ import { faTimes, faBox, faHistory } from "@fortawesome/free-solid-svg-icons";
 import "../modals/Modals.css";
 import "./CryptoOrderDetailsModal.css"
 import { formatTimeAgo } from "../../utils/formatTimeAgo";
-
-// Mock events data - in real scenario this would come from props
-const mockRecentEvents = [
-  {
-    id: "EV001",
-    action: "created",
-    customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    timestamp: "2025-11-16T10:30:00Z",
-  },
-  {
-    id: "EV002",
-    action: "deposited",
-    customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    timestamp: "2025-11-16T11:30:00Z",
-  },
-  {
-    id: "EV003",
-    action: "created",
-    customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    timestamp: "2025-11-16T10:30:00Z",
-  },
-  {
-    id: "EV004",
-    action: "deposited",
-    customerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    timestamp: "2025-11-16T11:30:00Z",
-  },
-];
+import { getOrderEvents } from "../../services/OrderService";
 
 const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
-  const [recentEvents, setRecentEvents] = useState(mockRecentEvents);
+  const [recentEvents, setRecentEvents] = useState([]);
+  const getFixedEventName = (name) => {
+    switch(name) {
+      case "EscrowCreated":
+        return "created"
+      case "PaymentRecorded":
+        return "payment-recorded"
+      case "EscrowFunded":
+        return "deposited"
+      case "EscrowRefunded":
+        return "cancelled"
+      default:
+        return "created"
+    }
+  }
 
   useEffect(() => {
     document.body.style.overflowY = 'hidden';
@@ -44,7 +31,13 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
     };
   }, []);
 
-  
+  useEffect(() => {
+    const getEvents = async () => {
+      let events = await getOrderEvents(orderID)
+      setRecentEvents(events.data)
+    }
+    getEvents()
+  }, [orderID])
 
   if (!orderID) return null;
 
@@ -99,15 +92,15 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
                       .map((event) => (
                         <tr key={event.id} style={{ borderBottom: "1px solid #eee" }}>
                           <td style={{ padding: "8px" }}>
-                            <span className={"status-badge status-" + event.action.toString()}>
-                              {event.action.charAt(0).toUpperCase() + event.action.slice(1)}
+                            <span className={"status-badge status-" + getFixedEventName(event.event_name) }>
+                              {event.event_name}
                             </span>
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px", fontFamily: "monospace", color: "#666" }}>
-                            {event.customerAddress}
+                            {event.transaction_hash}
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px", color: "#999" }}>
-                            {formatDate(event.timestamp)}
+                            {formatDate(event.created_at)}
                           </td>
                         </tr>
                       ))
@@ -115,11 +108,6 @@ const CryptoOrderDetailsModal = ({ orderID, onClose }) => {
                   </tbody>
                 </table>
               </div>
-            </div>
-
-            <div style={{display: "flex", width: "100%", flexDirection: "row", gap: "8px", justifyContent: "flex-end"}}>
-              <button className="crypto-details-modal-btn cancel" onClick={onClose}>Huỷ đơn hàng</button>
-              <button className="crypto-details-modal-btn confirm">Xác nhận đơn hàng</button>
             </div>
           </div>
         </div>
