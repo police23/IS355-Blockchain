@@ -484,6 +484,7 @@ const getAllOrderEvents = async (req, res) => {
 const getAllVouchers = async (req, res) => {
   try {
     const userId = req.user?.id || req.query.userId;
+    console.log(userId)
     // 1. Lấy danh sách loại voucher
     // Đặt tên biến khác đi (listVoucherTypes) để không nhầm với Model (VoucherTypes)
     const listVoucherTypes = await VoucherTypes.findAll();
@@ -521,26 +522,45 @@ const getAllVouchers = async (req, res) => {
     });
   } catch (e) {
     console.error("Error in getAllVouchers:", e);
-    res.status(500).json({ success: false, error: e.message });
+    return res.status(500).json({ success: false, error: e.message });
   }
 };
 
 const purchaseVoucher = async (req, res) => {
   try {
-    // req: { userID: string / int -> bỏ vô hàm, voucherID: int -> truy DB để lấy giá }
-    // voucherID -> check DB xem tokenID đó có giá bao nhiều
-    // -> gọi hàm trên smart contract để trừ token = giá voucher
-    // catch -> error
-    // return -> success
+    const { userId, voucherId } = req.body;
+    console.log(userId, " ", voucherId)
+    // Validate inputs
+    if (!userId || !voucherId) {
+      console.log("Missing userId or voucherId")
+      return res.status(400).json({ success: false, error: "Missing userId or voucherId" });
+    }
+    // Find the voucher by ID
+    const voucher = await VoucherTypes.findOne({ where: { id: voucherId } });
+    if (!voucher) {
+      console.log("Voucher not found")
+      return res.status(404).json({ success: false, error: "Voucher not found" });
+    }
+    // Get the token cost from voucher
+    const tokenCost = voucher.token_cost;
+    // Redeem points with the voucher's token cost
+    try {
+      console.log("Reemding points")
+      await RewardTokenService.redeemPoints(userId, tokenCost);
+      return res.json({ success: true, message: "Voucher purchased successfully", data: { voucherId, tokenCost } });
+    } catch (error) {
+      console.log("FAILED FAILED FAILED FAILED")
+      console.log("FAILED FAILED FAILED FAILED")
+      console.log("FAILED FAILED FAILED FAILED")
+      return res.status(400).json({ success: false, error: error.message || "Failed to redeem points" });
+    }
   } catch (e) {
-    console.error(e);
+    console.error("Error in purchaseVoucher:", e);
+    console.log("FAILED FAILED FAILED FAILED")
+    console.log("FAILED FAILED FAILED FAILED")
+    console.log("FAILED FAILED FAILED FAILED")
+    return res.status(500).json({ success: false, error: "Internal server error" });
   }
-};
-
-const grantToken = async (req, res) => {
-  try {
-    // gọi hàm grant token cho người dùng ở smart contract
-  } catch (e) {}
 };
 
 module.exports = {

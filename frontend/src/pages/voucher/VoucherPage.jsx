@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import PublicHeader from "../../components/common/PublicHeader";
 import "./VoucherPage.css";
-import { getVouchers } from "../../services/OrderService";
+import { getVouchers, purchaseVoucher } from "../../services/OrderService";
 import { useAuth } from "../../contexts/AuthContext";
 
 export const VoucherPage = () => {
@@ -16,9 +16,10 @@ export const VoucherPage = () => {
       try {
         // const data = await getVouchers()
         const data = await getVouchers(user?.id);
-        setTokenBalance(data.userBalance);
         if (data.success) {
           // Map voucherTypes to availableVouchers
+          setTokenBalance(data.userBalance);
+
           const available = data.voucherTypes.map((voucher) => ({
             id: voucher.id,
             name: voucher.name,
@@ -73,10 +74,11 @@ export const VoucherPage = () => {
     }
   };
 
-  const purchaseVoucher = async (userID, voucherID) => {
+  const localPurchaseVoucher = async (userID, voucherID) => {
     try {
       setLoading(true);
       const res = await purchaseVoucher(userID, voucherID);
+      console.log(res)
       if (res.success) {
         const newData = await getVouchers(user?.id);
         const newMyVouchersData = newData.userVouchers.map((uv) => ({
@@ -101,6 +103,7 @@ export const VoucherPage = () => {
   return (
     <div>
       <PublicHeader />
+      {loading && <div className="loading-overlay"><div className="spinner"></div></div>}
       <div className="voucher-page">
         <div className="voucher-container">
           <div className="voucher-header">
@@ -217,7 +220,7 @@ export const VoucherPage = () => {
                       </p>
                       <button
                         onClick={() => {
-                          purchaseVoucher(user?.id, voucher.id);
+                          localPurchaseVoucher(user?.id, voucher.id);
                         }}
                         className="purchase-btn"
                       >

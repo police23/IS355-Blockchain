@@ -218,28 +218,25 @@ export const getOrderEvents = async (orderId) => {
 
 export const getVouchers = async (userID) => {
   // điền lại endpoint URL
+  console.log(`${ORDER_API_URL}/vouchers/get?userId=${userID}`)
   const response = await axios.get(
-    `${API_BASE_URL}/voucher/get?userID=${userID}`,
+    `${ORDER_API_URL}/vouchers/get?userId=${userID}`,
     { headers: getAuthHeader() }
   );
   // getBalance(userID) trừ smart contract
   return response.data;
 };
 
-export const purchaseVoucher = async (userID, voucherID) => {
-  // điền lại endpoint URL
-  const response = await axios.get(
-    `${API_BASE_URL}/vouchers/purchase`,
-    { userID, voucherID },
-    { headers: getAuthHeader() }
-  );
-  return response.data;
-};
-
-export const getBalance = async () => {
-  // điền lại endpoint URL
-  const response = await axios.get(`${API_BASE_URL}/vouchers/get`, {
-    headers: getAuthHeader(),
-  });
-  return response.data;
+export const purchaseVoucher = async (userId, voucherId) => {
+  try {
+    const response = await axios.post(
+      `${ORDER_API_URL}/vouchers/purchase`,
+      { userId, voucherId },
+      { headers: getAuthHeader() }
+    );
+    return response;
+  }
+  catch (e) {
+    console.error(e)
+  }
 };

@@ -82,15 +82,6 @@ class RewardTokenService {
    */
   async redeemPoints(userId, amount, reason = "Redeem Voucher") {
     try {
-      // Kiểm tra số dư trước
-      const balance = await this.getBalance(userId);
-      if (parseFloat(balance) < parseFloat(amount)) {
-        throw new Error("Số dư điểm thưởng không đủ.");
-      }
-
-      console.log(`[RewardToken] User ID: ${userId} spending ${amount} tokens`);
-
-      // Gọi hàm spendFromUser
       const tx = await writeContract.spendFromUser(userId, amount, reason);
 
       console.log(`[RewardToken] Tx Hash (Redeem): ${tx.hash}`);
