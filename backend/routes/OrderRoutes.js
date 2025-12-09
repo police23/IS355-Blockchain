@@ -55,4 +55,8 @@ router.post("/crypto/submit-result", OrderController.submitCryptoResult);
 router.get("/:orderId/events", OrderController.getEventsByOrderId);
 router.get("/events", OrderController.getAllOrderEvents);
 router.get("/:orderId/receipt", ReceiptController.viewReceipt);
+
+router.get("/vouchers/get", OrderController.getAllVouchers);
+router.get("/vouchers/purchase", OrderController.purchaseVoucher);
+
 module.exports = router;

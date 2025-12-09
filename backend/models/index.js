@@ -34,6 +34,11 @@ const { DamageReportItem } = require('./DamageReportItemsModel');
 const { Cart } = require('./CartModel');
 const { CartDetail } = require('./CartDetailModel');
 
+// Vouchers
+const { UserVoucher } = require('./UserVoucherModel');
+const { VoucherTypes } = require('./VoucherTypesModel');
+
+
 // =================
 // DEFINE ASSOCIATIONS
 // =================
@@ -129,6 +134,14 @@ Book.belongsToMany(Promotion, {
   as: 'promotions',
 });
 
+// Voucher associations
+UserVoucher.associate = (models) => {
+  UserVoucher.belongsTo(models.User, { foreignKey: 'user_id' });
+  UserVoucher.belongsTo(models.VoucherType, { foreignKey: 'voucher_type_id' });
+};
+
+
+
 // =================
 // EXPORT ALL MODELS
 // =================
@@ -154,5 +167,7 @@ module.exports = {
   DamageReport,
   DamageReportItem,
   Cart,
-  CartDetail
+  CartDetail,
+  UserVoucher,
+  VoucherTypes,
 };
