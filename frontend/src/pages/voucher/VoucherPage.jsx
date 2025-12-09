@@ -78,9 +78,15 @@ export const VoucherPage = () => {
     try {
       setLoading(true);
       const res = await purchaseVoucher(userID, voucherID);
-      console.log(res)
-      if (res.success) {
+      console.log("Purchase response:", res);
+      
+      // res is the data object, check for success property
+      if (res && res.success) {
+        alert("Mua voucher thành công!");
+        // Refresh vouchers after successful purchase
         const newData = await getVouchers(user?.id);
+        setTokenBalance(newData.userBalance);
+        
         const newMyVouchersData = newData.userVouchers.map((uv) => ({
           id: uv.id,
           code: uv.code,
@@ -91,10 +97,11 @@ export const VoucherPage = () => {
         }));
         setMyVouchers(newMyVouchersData);
       } else {
-        alert("Giao dịch thất bại");
+        alert("Giao dịch thất bại: " + (res?.error || "Unknown error"));
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error purchasing voucher:", e);
+      alert("Lỗi: " + e.message);
     } finally {
       setLoading(false);
     }

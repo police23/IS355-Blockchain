@@ -547,7 +547,21 @@ const purchaseVoucher = async (req, res) => {
     try {
       console.log("Reemding points")
       await RewardTokenService.redeemPoints(userId, tokenCost);
-      return res.json({ success: true, message: "Voucher purchased successfully", data: { voucherId, tokenCost } });
+      
+      // Generate unique voucher code
+      const voucherCode = `VOUCHER-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      
+      // Create new UserVoucher instance
+      const userVoucher = await UserVoucher.create({
+        user_id: userId,
+        voucher_type_id: voucherId,
+        code: voucherCode,
+        status: 'unused',
+        issued_at: new Date(),
+      });
+      
+      console.log("UserVoucher created successfully:", userVoucher);
+      return res.json({ success: true, message: "Voucher purchased successfully", data: { voucherId, tokenCost, voucherCode } });
     } catch (error) {
       console.log("FAILED FAILED FAILED FAILED")
       console.log("FAILED FAILED FAILED FAILED")
