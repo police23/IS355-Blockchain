@@ -162,3 +162,18 @@ export const getOrderEvents = async (orderId) => {
   const response = await axios.get(`${ORDER_API_URL}/${orderId}/events`, { headers: getAuthHeader() });
   return response.data;
 };
+
+export const getVouchers = async () => {
+  // điền lại endpoint URL
+  const response = await axios.get(`${API_BASE_URL}/voucher`, { headers: getAuthHeader() })
+  return response.data
+}
+
+export const purchaseVoucher = async (userID, voucherID) => {
+  // điền lại endpoint URL
+  const response = await axios.get(`${API_BASE_URL}/ew`, 
+    { userID, voucherID },
+    { headers: getAuthHeader() }
+  )
+  return response.data
+}
