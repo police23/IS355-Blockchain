@@ -5,6 +5,7 @@ const { ethers } = require("ethers");
 const { Order, UserVoucher, VoucherTypes } = require("../models");
 const ReceiptService = require("../services/ReceptService");
 const OrderRegistryService = require("../services/OrderRegistryService");
+const RewardTokenService = require("../services/RewardTokenService");
 const fs = require("fs-extra");
 const path = require("path");
 const getOrdersByUserID = async (req, res) => {
@@ -482,6 +483,7 @@ const getAllOrderEvents = async (req, res) => {
 
 const getAllVouchers = async (req, res) => {
   try {
+    const userId = req.user?.id || req.query.userId;
     // 1. Lấy danh sách loại voucher
     // Đặt tên biến khác đi (listVoucherTypes) để không nhầm với Model (VoucherTypes)
     const listVoucherTypes = await VoucherTypes.findAll();
@@ -498,11 +500,24 @@ const getAllVouchers = async (req, res) => {
       ],
     });
     console.log("UserVouchers found:", userVouchers.length);
-
+    let userBalance = "0";
+    if (userId) {
+      try {
+        // Gọi Service để lấy số dư trên Blockchain
+        userBalance = await RewardTokenService.getBalance(userId);
+        console.log(`User ${userId} balance: ${userBalance}`);
+      } catch (err) {
+        console.error("Lỗi lấy số dư RewardToken:", err.message);
+        // Không throw lỗi ở đây để tránh làm hỏng API lấy voucher
+        // Nếu lỗi blockchain thì cứ trả về 0 hoặc null
+      }
+    }
+    // ============================================================
     res.json({
       success: true,
       voucherTypes: listVoucherTypes,
       userVouchers,
+      userBalance,
     });
   } catch (e) {
     console.error("Error in getAllVouchers:", e);
