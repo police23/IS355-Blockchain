@@ -2,7 +2,7 @@ const OrderService = require("../services/OrderService");
 const EscrowService = require("../services/EscrowService");
 const { ESCROW_ABI } = require("../utils/escrowClient");
 const { ethers } = require("ethers");
-const { Order, UserVoucher, VoucherType } = require("../models");
+const { Order, UserVoucher, VoucherTypes } = require("../models");
 const ReceiptService = require("../services/ReceptService");
 const OrderRegistryService = require("../services/OrderRegistryService");
 const fs = require("fs-extra");
@@ -482,29 +482,33 @@ const getAllOrderEvents = async (req, res) => {
 
 const getAllVouchers = async (req, res) => {
   try {
-    const { VoucherType, UserVoucher } = require("../models");
-    
-    // Test 1: Get all VoucherTypes
-    const voucherTypes = await VoucherType.findAll();
-    console.log("VoucherTypes found:", voucherTypes.length);
-    
-    // Test 2: Get all UserVouchers
+    // 1. Lấy danh sách loại voucher
+    // Đặt tên biến khác đi (listVoucherTypes) để không nhầm với Model (VoucherTypes)
+    const listVoucherTypes = await VoucherTypes.findAll();
+    console.log("VoucherTypes found:", listVoucherTypes.length);
+
+    // 2. Lấy danh sách voucher của người dùng kèm thông tin loại voucher
     const userVouchers = await UserVoucher.findAll({
-      include: [{ model: VoucherType }]
+      include: [
+        {
+          model: VoucherTypes, // <-- Quan trọng: Phải truyền Model Class vào đây
+          as: "type", // <-- Quan trọng: Phải khớp với 'as' trong models/index.js (UserVoucher.belongsTo(..., as: 'type'))
+          // Nếu trong model/index.js bạn để as: 'voucherType' thì sửa dòng trên thành 'voucherType'
+        },
+      ],
     });
     console.log("UserVouchers found:", userVouchers.length);
-    
+
     res.json({
       success: true,
-      voucherTypes,
-      userVouchers
+      voucherTypes: listVoucherTypes,
+      userVouchers,
     });
-  }
-  catch (e) {
+  } catch (e) {
     console.error("Error in getAllVouchers:", e);
     res.status(500).json({ success: false, error: e.message });
   }
-}
+};
 
 const purchaseVoucher = async (req, res) => {
   try {
@@ -513,20 +517,16 @@ const purchaseVoucher = async (req, res) => {
     // -> gọi hàm trên smart contract để trừ token = giá voucher
     // catch -> error
     // return -> success
+  } catch (e) {
+    console.error(e);
   }
-  catch (e) {
-    console.error(e)
-  }
-}
+};
 
 const grantToken = async (req, res) => {
   try {
     // gọi hàm grant token cho người dùng ở smart contract
-  }
-  catch (e) {
-
-  }
-}
+  } catch (e) {}
+};
 
 module.exports = {
   getOrdersByUserID,

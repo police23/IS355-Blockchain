@@ -2,7 +2,9 @@
 const { ethers } = require("ethers");
 const { ESCROW_ABI } = require("../utils/escrowClient"); // Import ABI
 const QueueService = require("../services/QueueService");
-
+const { Order } = require("../models");
+// 1. IMPORT SERVICE REWARD TOKEN
+const RewardTokenService = require("../services/RewardTokenService");
 // Mapping Status từ số sang chữ (cho đẹp DB)
 const STATUS_MAP = ["None", "Active", "Released", "Refunded"];
 
@@ -48,7 +50,7 @@ const startListener = () => {
 
     contract.on(
       "EscrowFunded",
-      (
+      async (
         orderKey,
         orderId,
         buyer,
@@ -58,27 +60,77 @@ const startListener = () => {
         timeoutAt,
         event
       ) => {
-        console.log(`🔥 [EscrowFunded] Order: ${orderId} (Key: ${orderKey})`);
+        console.log(`🔥 [EscrowFunded] Order: ${orderId}`);
+        console.log(
+          `[Listener] Found buyer address: ${buyer} for Order: ${orderId}`
+        );
+        try {
+          // 1. QUERY DATABASE LẤY USER ID
+          let userId = null;
 
-        const eventData = {
-          eventName: "EscrowFunded",
-          transactionHash: event.log.transactionHash,
-          blockNumber: event.log.blockNumber,
-          // Vì trong Event này orderId là string (không phải indexed), nên lấy trực tiếp được
-          orderId: orderId,
-          payload: {
-            buyer: buyer,
-            seller: seller,
-            amount: ethers.formatEther(amount), // Convert Wei -> ETH
-            fundedAt: fundedAt.toString(), // BigInt -> String
-            timeoutAt: timeoutAt.toString(), // BigInt -> String
-            status: "Active", // Hoặc "Funded" tùy logic của bạn
-          },
-          // timestamp: fundedAt.toString() // Nếu bạn muốn dùng thời điểm fund làm time mốc
-        };
+          // Tìm đơn hàng trong DB dựa vào orderId nhận được từ sự kiện
+          const orderRecord = await Order.findByPk(orderId);
 
-        // Đẩy sang Queue Service
-        QueueService.pushToQueue(eventData);
+          if (orderRecord) {
+            userId = orderRecord.user_id;
+            console.log(
+              `[Listener] Found User ID: ${userId} for Order: ${orderId}`
+            );
+
+            // ============================================================
+            // 2. GỌI REWARD TOKEN SERVICE (ĐĂNG KÝ USER TRÊN CHAIN)
+            // ============================================================
+            if (userId && buyer) {
+              // Chạy cái này để map UserID với Ví Buyer vào Contract Reward
+              // Bọc try-catch riêng để nếu lỗi (vd: đã đăng ký rồi) thì không ảnh hưởng luồng chính
+              try {
+                console.log(
+                  `[Listener] Auto-registering User ${userId} with wallet ${buyer}...`
+                );
+
+                await RewardTokenService.registerUserOnChain(userId, buyer);
+
+                console.log(
+                  `[Listener] ✅ User ${userId} registered on RewardToken contract.`
+                );
+              } catch (regError) {
+                // Chỉ log lỗi warning, không throw để code chạy tiếp xuống phần Queue
+                console.warn(
+                  `[Listener] ⚠️ Register User failed (might already exist): ${regError.message}`
+                );
+              }
+            }
+            // ============================================================
+          } else {
+            console.warn(
+              `[Listener] Warning: Order ${orderId} not found in DB`
+            );
+          }
+
+          // 2. ĐÓNG GÓI DỮ LIỆU
+          const eventData = {
+            eventName: "EscrowFunded",
+            transactionHash: event.log.transactionHash,
+            blockNumber: event.log.blockNumber,
+            orderId: orderId,
+            payload: {
+              orderKey: orderKey,
+              buyer: buyer,
+              seller: seller,
+              amount: ethers.formatEther(amount),
+              fundedAt: fundedAt.toString(),
+              timeoutAt: timeoutAt.toString(),
+              status: "Active",
+            },
+          };
+
+          // 3. ĐẨY VÀO QUEUE
+          QueueService.pushToQueue(eventData);
+        } catch (error) {
+          console.error(
+            `[Listener] Error processing EscrowFunded: ${error.message}`
+          );
+        }
       }
     );
 

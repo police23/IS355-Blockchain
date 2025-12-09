@@ -42,7 +42,7 @@ const ESCROW_ABI = [
         type: "uint256",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "seller",
         type: "address",
@@ -73,13 +73,13 @@ const ESCROW_ABI = [
         type: "string",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "buyer",
         type: "address",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "seller",
         type: "address",
@@ -122,13 +122,13 @@ const ESCROW_ABI = [
         type: "string",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "buyer",
         type: "address",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "seller",
         type: "address",
@@ -177,13 +177,13 @@ const ESCROW_ABI = [
         type: "string",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "buyer",
         type: "address",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "seller",
         type: "address",

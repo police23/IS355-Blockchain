@@ -12,25 +12,19 @@ const ORDER_REGISTRY_ABI = [
     anonymous: false,
     inputs: [
       {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderKey",
-        type: "bytes32",
-      },
-      {
         indexed: false,
         internalType: "string",
         name: "orderId",
         type: "string",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "buyer",
         type: "address",
       },
       {
-        indexed: true,
+        indexed: false,
         internalType: "address",
         name: "seller",
         type: "address",
@@ -60,12 +54,6 @@ const ORDER_REGISTRY_ABI = [
   {
     anonymous: false,
     inputs: [
-      {
-        indexed: true,
-        internalType: "bytes32",
-        name: "orderKey",
-        type: "bytes32",
-      },
       {
         indexed: false,
         internalType: "string",
@@ -326,7 +314,6 @@ const ORDER_REGISTRY_ABI = [
     type: "function",
   },
 ];
-
 module.exports = {
   ORDER_REGISTRY_ABI,
 };
