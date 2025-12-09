@@ -16,6 +16,7 @@ import MyOrdersPage from './pages/my-orders/MyOrdersPage.jsx';
 import OrderManagementPanel from './pages/panel/OrderManagerPanel.jsx';
 import ShipperPanel from './pages/panel/ShipperPanel.jsx';
 import axios from "axios";
+import { VoucherPage } from './pages/voucher/VoucherPage.jsx';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
@@ -109,6 +110,8 @@ function App() {
       <Route path="/order-manager/*" element={<ProtectedRoute requiredRole={5}><OrderManagementPanel /></ProtectedRoute>} />
       <Route path="/shipper/*" element={<ProtectedRoute requiredRole={6}><ShipperPanel /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
+
+      <Route path="/voucher" element={<VoucherPage/>} />
     </Routes>
   );
 }

@@ -34,6 +34,10 @@ function PublicHeader() {
     navigate('/login');
   };
 
+  const handleVoucherScreen = async () => {
+    navigate('/voucher');
+  }
+
   return (
     <header className="homepage-header">
       <div className="header-logo" onClick={() => navigate('/')}> 
@@ -119,6 +123,12 @@ function PublicHeader() {
                   onClick={() => { setShowMenu(false); navigate('/my-orders'); }}
                 >
                   Đơn hàng của tôi
+                </div>
+                <div
+                  style={{ padding: '12px 18px', cursor: 'pointer', borderBottom: '1px solid #eee' }}
+                  onClick={handleVoucherScreen}
+                >
+                  Voucher của tôi
                 </div>
                 <div
                   style={{ padding: '12px 18px', cursor: 'pointer', color: '#d32f2f' }}
